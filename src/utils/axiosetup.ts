@@ -1,10 +1,9 @@
-
 import axios from 'axios';
 import useAuthStore from '../store/authStore';
 import refreshToken from './tokenrefresh';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/',
+  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000/',
 });
 
 api.interceptors.request.use(

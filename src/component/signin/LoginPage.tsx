@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import axios from '../../utils/axiosetup';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore';
 import { Form, Input, Button, Typography, Checkbox, Row, Col, message, notification } from 'antd';
@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
 
   const onFinish = async (values: any) => {
     try {
-      const response = await axios.post('http://localhost:8000/authentication/login/', {
+      const response = await axios.post('/authentication/login/', {
         username: values.username,
         password: values.password,
       });
