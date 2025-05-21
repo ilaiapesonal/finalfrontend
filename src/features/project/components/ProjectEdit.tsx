@@ -72,7 +72,7 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
       title="Edit Project"
       onCancel={onCancel}
       footer={null}
-      destroyOnClose
+    destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item

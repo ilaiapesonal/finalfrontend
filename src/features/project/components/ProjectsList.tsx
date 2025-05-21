@@ -1,11 +1,11 @@
 import React from 'react';
 import { Table, Button, Space, Modal, message } from 'antd';
 import { EditOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
-import ProjectCreation from './ProjectCreation';
-import ProjectEdit from './ProjectEdit';
-import ProjectView from './ProjectView';
-import axios from '../../utils/axiosetup';
-import useAuthStore from '../../store/authStore';
+import ProjectCreation from '@features/project/components/ProjectCreation';
+import ProjectEdit from '@features/project/components/ProjectEdit';
+import ProjectView from '@features/project/components/ProjectView';
+import axios from '@common/utils/axiosetup';
+import useAuthStore from '@common/store/authStore';
 
 interface Project {
   key: string;
@@ -184,7 +184,7 @@ const ProjectsList: React.FC = () => {
         <ProjectEdit
           project={editingProject}
           visible={true}
-          onSave={async (updatedProject) => {
+  onSave={async (updatedProject: any) => {
             if (!updatedProject.id) {
               message.error('Project ID is missing. Cannot update project.');
               return;

@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Typography, message } from 'antd';
-import axios from '../../utils/axiosetup';
+import axios from '@common/utils/axiosetup';
 import { useNavigate } from 'react-router-dom';
+import useAuthStore from '@common/store/authStore';
 
 const { Title } = Typography;
 
 const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const setIsPasswordResetRequired = useAuthStore((state) => state.setIsPasswordResetRequired);
 
   const onFinish = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
@@ -17,11 +19,13 @@ const ResetPassword: React.FC = () => {
 
     setLoading(true);
     try {
+      const username = useAuthStore.getState().username;
       await axios.put('/authentication/admin/reset-password/', {
-        current_password: values.currentPassword,
-        new_password: values.newPassword,
+        username,
+        password: values.newPassword,
       });
       message.success('Password reset successful. Please log in with your new password.');
+      setIsPasswordResetRequired(false);
       navigate('/login');
     } catch (error) {
       message.error('Failed to reset password. Please try again.');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Dropdown, Avatar, Badge, Typography, Space, message } from 'antd';
 import {
   UserOutlined,
@@ -10,10 +10,11 @@ import {
   LogoutOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import useAuthStore from '../../store/authStore';
-import axios from '../../utils/axiosetup';
-import ProjectsList from '../project/ProjectsList';
-import AdminCreation from '../admin/admincreation';
+import useAuthStore from '@common/store/authStore';
+import axios from '@common/utils/axiosetup';
+import ProjectsList from '@features/project/components/ProjectsList';
+import AdminCreation from '@features/admin/components/AdminCreation';
+import UserList from '@features/user/components/UserList';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -29,10 +30,13 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const clearToken = useAuthStore((state) => state.clearToken);
   const username = useAuthStore((state) => state.username);
+  const usertype = useAuthStore((state) => state.usertype);
   const token = useAuthStore((state) => state.token);
   const refreshToken = useAuthStore((state) => state.refreshToken);
 
-  console.log('Dashboard username:', username);
+  useEffect(() => {
+    console.log('Dashboard username:', username);
+  }, [username]);
 
   const handleMenuClick = (e: any) => {
     setSelectedKey(e.key);
@@ -79,6 +83,8 @@ const Dashboard: React.FC = () => {
         return <ProjectsList />;
       case 'adminusers':
         return <AdminCreation />;
+      case 'users':
+        return <UserList />;
       default:
         return (
           <>
@@ -100,12 +106,13 @@ const Dashboard: React.FC = () => {
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
-          items={[
-            { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
-            { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
-            { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
-            { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
-          ]}
+        items={[
+          { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
+          { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
+          { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
+          ...(usertype !== 'masteradmin' ? [{ key: 'users', icon: <UserOutlined />, label: 'Users' }] : []),
+          { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
+        ]}
         />
       </Sider>
       <Layout>

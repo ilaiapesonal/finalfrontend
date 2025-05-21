@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Select, message, Typography, Divider } from 'antd';
-import axios from '../../utils/axiosetup';
-import useAuthStore from '../../store/authStore';
+import axios from '@common/utils/axiosetup';
+import useAuthStore from '@common/store/authStore';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -40,20 +40,24 @@ const AdminCreation: React.FC = () => {
   const authStore = useAuthStore();
 
   useEffect(() => {
+    if (!authStore.isAuthenticated()) {
+      window.location.href = '/signin';
+      return;
+    }
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('/authentication/project/list/', {
-          headers: {
-            Authorization: `Bearer ${authStore.token}`,
-          },
-        });
+        const response = await axios.get('/authentication/project/list/');
         if (Array.isArray(response.data)) {
           setProjects(response.data);
         } else {
           setProjects([]);
         }
-      } catch (error) {
-        message.error('Failed to fetch projects');
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          window.location.href = '/signin';
+        } else {
+          message.error('Failed to fetch projects');
+        }
       }
     };
     fetchProjects();
@@ -61,11 +65,7 @@ const AdminCreation: React.FC = () => {
 
   const fetchAdminsForProject = async (projectId: number) => {
     try {
-      const response = await axios.get(`/authentication/admin/list/${projectId}/`, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`,
-        },
-      });
+      const response = await axios.get(`/authentication/admin/list/${projectId}/`);
       if (response.data) {
         const admins = response.data;
         if (admins.clientAdmin) {
@@ -99,8 +99,12 @@ const AdminCreation: React.FC = () => {
           setContractorAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
         }
       }
-    } catch (error) {
-      message.error('Failed to fetch admin users for selected project');
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        window.location.href = '/signin';
+      } else {
+        message.error('Failed to fetch admin users for selected project');
+      }
       setClientAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
       setEpcAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
       setContractorAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
@@ -162,15 +166,11 @@ const AdminCreation: React.FC = () => {
 
       if (!adminData.created) {
         // Create admin
-        await axios.post('/authentication/admin/create/', payload, {
-          headers: { Authorization: `Bearer ${authStore.token}` },
-        });
+        await axios.post('/authentication/admin/create/', payload);
         message.success(`${adminType.toUpperCase()} Admin created successfully`);
       } else {
         // Reset password
-        await axios.put('/authentication/admin/reset-password/', payload, {
-          headers: { Authorization: `Bearer ${authStore.token}` },
-        });
+        await axios.put('/authentication/admin/reset-password/', payload);
         message.success(`${adminType.toUpperCase()} Admin password reset successfully`);
       }
 

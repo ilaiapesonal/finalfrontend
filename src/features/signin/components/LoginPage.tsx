@@ -1,15 +1,18 @@
 import React from 'react';
-import axios from '../../utils/axiosetup';
+import axios from '@common/utils/axiosetup';
 import { useNavigate } from 'react-router-dom';
-import useAuthStore from '../../store/authStore';
+import useAuthStore from '@common/store/authStore';
 import { Form, Input, Button, Typography, Checkbox, Row, Col, message, notification } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const setToken = useAuthStore((state) => state.setToken);
+  const setUsertype = useAuthStore((state) => state.setUsertype);
+  const logout = useAuthStore((state) => state.logout);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const onFinish = async (values: any) => {
     try {
@@ -18,16 +21,28 @@ const LoginPage: React.FC = () => {
         password: values.password,
       });
       // Assuming the backend returns a token on successful login
+      console.log('Full login response data:', response.data);
       const token = response.data.access || response.data.token;
       const refreshToken = response.data.refresh;
       const username = response.data.username || response.data.user?.username || null;
-      console.log('Login response tokens:', { token, refreshToken, username });
+      const usertype = response.data.usertype || response.data.user?.usertype || null;
+      const isPasswordResetRequired = response.data.isPasswordResetRequired || false;
+
+      console.log('Login response tokens:', { token, refreshToken, username, usertype, isPasswordResetRequired });
       setToken(token);
       useAuthStore.getState().setRefreshToken(refreshToken);
       useAuthStore.getState().setUsername(username);
+      setUsertype(usertype);
+      useAuthStore.getState().setIsPasswordResetRequired(isPasswordResetRequired);
       console.log('AuthStore state after setting tokens:', useAuthStore.getState());
+
       message.success('Login successful!');
-      navigate('/dashboard');
+
+      if (isPasswordResetRequired) {
+        navigate('/reset-password');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       if (error.response && error.response.status === 401) {
         notification.error({
@@ -40,6 +55,24 @@ const LoginPage: React.FC = () => {
       } else {
         message.error('Login failed. Please try again later.');
       }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      notification.success({
+        message: 'Logged out successfully',
+        placement: 'topRight',
+        duration: 3,
+        style: { fontWeight: 'bold' },
+      });
+      // Delay navigation slightly to allow notification to show
+      setTimeout(() => {
+        navigate('/signin');
+      }, 1500);
+    } catch (error) {
+      message.error('Logout failed. Please try again.');
     }
   };
 
@@ -139,17 +172,17 @@ const LoginPage: React.FC = () => {
                 Log in
               </Button>
             </Form.Item>
-
-            <Form.Item style={{ textAlign: 'center', marginBottom: 0 }}>
-              <a href="#" style={{ color: '#764ba2', fontWeight: 'bold' }}>
-                Forgot password?
-              </a>
-              <span style={{ margin: '0 8px', color: '#aaa' }}>|</span>
-              <a href="#" style={{ color: '#764ba2', fontWeight: 'bold' }}>
-                Register now
-              </a>
-            </Form.Item>
           </Form>
+          {isAuthenticated() && (
+            <Button
+              type="default"
+              icon={<LogoutOutlined />}
+              onClick={handleLogout}
+              style={{ marginTop: 16, width: '100%', fontWeight: 'bold', borderRadius: 12 }}
+            >
+              Log out
+            </Button>
+          )}
         </div>
       </Col>
       <Col
