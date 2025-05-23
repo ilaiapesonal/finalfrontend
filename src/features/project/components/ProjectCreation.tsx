@@ -1,22 +1,59 @@
-import React from 'react';
-import { Form, Input, Button, DatePicker, Select, Typography } from 'antd';
+import React, { useState } from 'react';
+import { Form, Input, Button, DatePicker, Select, Typography, message } from 'antd';
+import axios from '@common/utils/axiosetup';
 
 const { Title } = Typography;
 const { Option } = Select;
 
 interface ProjectCreationProps {
   onFinish?: (values: any) => void;
+  onSuccess?: () => void;
 }
 
-const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish }) => {
+const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish, onSuccess }) => {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
-  const internalOnFinish = (values: any) => {
+  const internalOnFinish = async (values: any) => {
+    // Format the date to match Django's expected format (YYYY-MM-DD)
+    const formattedValues = {
+      ...values,
+      commencementDate: values.commencementDate.format('YYYY-MM-DD'),
+    };
+
+    // Map form field names to match the backend API expectations
+    const apiData = {
+      name: formattedValues.projectName,
+      category: formattedValues.projectCategory,
+      capacity: formattedValues.capacity,
+      location: formattedValues.location,
+      policeStation: formattedValues.nearestPoliceStation,
+      policeContact: formattedValues.nearestPoliceStationContact,
+      hospital: formattedValues.nearestHospital,
+      hospitalContact: formattedValues.nearestHospitalContact,
+      commencementDate: formattedValues.commencementDate,
+    };
+
     if (onFinish) {
-      onFinish(values);
-    } else {
-      console.log('Project form values:', values);
-      // TODO: Handle form submission, e.g., API call to create project
+      onFinish(apiData);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Use the master admin project creation endpoint
+      await axios.post('/authentication/master-admin/projects/create/', apiData);
+      message.success('Project created successfully!');
+      form.resetFields();
+      
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error: any) {
+      console.error('Error creating project:', error);
+      message.error(error.response?.data?.error || 'Failed to create project. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -109,7 +146,7 @@ const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish }) => {
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+          <Button type="primary" htmlType="submit" style={{ width: '100%' }} loading={loading}>
             Create Project
           </Button>
         </Form.Item>

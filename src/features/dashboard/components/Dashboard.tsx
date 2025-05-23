@@ -21,9 +21,10 @@ const { Text } = Typography;
 
 const Dashboard: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedKey, setSelectedKey] = useState(() => {
+  const [selectedKey, setSelectedKey] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('selectedMenu') || 'overview';
+      const storedKey = localStorage.getItem('selectedMenu');
+      return storedKey !== null ? storedKey : 'overview';
     }
     return 'overview';
   });
@@ -106,13 +107,20 @@ const Dashboard: React.FC = () => {
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
-        items={[
-          { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
-          { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
-          { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
-          ...(usertype !== 'masteradmin' ? [{ key: 'users', icon: <UserOutlined />, label: 'Users' }] : []),
-          { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
-        ]}
+        items={
+          usertype === 'master'
+            ? [
+                { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
+                { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
+                { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
+                { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
+              ]
+            : ['client', 'epc', 'contractor'].includes(usertype ?? '')
+            ? [
+                { key: 'users', icon: <UserOutlined />, label: 'Users' },
+              ]
+            : []
+        }
         />
       </Sider>
       <Layout>

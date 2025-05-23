@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Select, message, Typography, Divider } from 'antd';
 import axios from '@common/utils/axiosetup';
 import useAuthStore from '@common/store/authStore';
+import { useNavigate } from 'react-router-dom';
 
 const { Option } = Select;
 const { Title } = Typography;
@@ -19,15 +20,6 @@ interface AdminData {
   created: boolean;
 }
 
-const generatePassword = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
-  let password = '';
-  for (let i = 0; i < 12; i++) {
-    password += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return password;
-};
-
 const AdminCreation: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -37,11 +29,18 @@ const AdminCreation: React.FC = () => {
   const [loadingClient, setLoadingClient] = useState(false);
   const [loadingEpc, setLoadingEpc] = useState(false);
   const [loadingContractor, setLoadingContractor] = useState(false);
-  const authStore = useAuthStore();
+  const userType = useAuthStore((state) => state.usertype);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authStore.isAuthenticated()) {
-      window.location.href = '/signin';
+    if (!isAuthenticated()) {
+      navigate('/signin');
+      return;
+    }
+    if (userType !== 'master') {
+      message.error('Only Master Admin can access this page');
+      navigate('/dashboard');
       return;
     }
     const fetchProjects = async () => {
@@ -54,25 +53,26 @@ const AdminCreation: React.FC = () => {
         }
       } catch (error: any) {
         if (error.response?.status === 401) {
-          window.location.href = '/signin';
+          navigate('/signin');
         } else {
           message.error('Failed to fetch projects');
         }
       }
     };
     fetchProjects();
-  }, [authStore.token]);
+  }, [isAuthenticated, navigate, userType]);
 
   const fetchAdminsForProject = async (projectId: number) => {
     try {
-      const response = await axios.get(`/authentication/admin/list/${projectId}/`);
+      let url = `/authentication/admin/list/${projectId}/`;
+      const response = await axios.get(url);
       if (response.data) {
         const admins = response.data;
         if (admins.clientAdmin) {
           setClientAdmin({
             username: admins.clientAdmin.username,
-            companyName: admins.clientAdmin.company_name,
-            registeredAddress: admins.clientAdmin.registered_address,
+            companyName: admins.clientAdmin.company_name || '',
+            registeredAddress: admins.clientAdmin.registered_address || '',
             created: true,
           });
         } else {
@@ -81,8 +81,8 @@ const AdminCreation: React.FC = () => {
         if (admins.epcAdmin) {
           setEpcAdmin({
             username: admins.epcAdmin.username,
-            companyName: admins.epcAdmin.company_name,
-            registeredAddress: admins.epcAdmin.registered_address,
+            companyName: admins.epcAdmin.company_name || '',
+            registeredAddress: admins.epcAdmin.registered_address || '',
             created: true,
           });
         } else {
@@ -91,8 +91,8 @@ const AdminCreation: React.FC = () => {
         if (admins.contractorAdmin) {
           setContractorAdmin({
             username: admins.contractorAdmin.username,
-            companyName: admins.contractorAdmin.company_name,
-            registeredAddress: admins.contractorAdmin.registered_address,
+            companyName: admins.contractorAdmin.company_name || '',
+            registeredAddress: admins.contractorAdmin.registered_address || '',
             created: true,
           });
         } else {
@@ -100,14 +100,21 @@ const AdminCreation: React.FC = () => {
         }
       }
     } catch (error: any) {
+      console.error('Error fetching admins:', error);
       if (error.response?.status === 401) {
-        window.location.href = '/signin';
+        navigate('/signin');
+      } else if (error.response?.status === 403) {
+        message.error('You do not have permission to view admins for this project');
+      } else if (error.response?.status === 404) {
+        setClientAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
+        setEpcAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
+        setContractorAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
       } else {
         message.error('Failed to fetch admin users for selected project');
+        setClientAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
+        setEpcAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
+        setContractorAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
       }
-      setClientAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
-      setEpcAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
-      setContractorAdmin({ username: '', companyName: '', registeredAddress: '', created: false });
     }
   };
 
@@ -131,7 +138,6 @@ const AdminCreation: React.FC = () => {
     let adminData: AdminData;
     let setLoading: React.Dispatch<React.SetStateAction<boolean>>;
     let setAdmin: React.Dispatch<React.SetStateAction<AdminData>>;
-
     if (adminType === 'client') {
       adminData = clientAdmin;
       setLoading = setLoadingClient;
@@ -145,51 +151,68 @@ const AdminCreation: React.FC = () => {
       setLoading = setLoadingContractor;
       setAdmin = setContractorAdmin;
     }
-
     if (!adminData.username || !adminData.companyName || !adminData.registeredAddress) {
       message.error('Please fill all fields for ' + adminType.toUpperCase() + ' Admin');
       return;
     }
-
     setLoading(true);
     try {
-      const password = generatePassword();
-
-      const payload = {
-        project: selectedProjectId,
-        admin_type: adminType,
-        username: adminData.username,
-        company_name: adminData.companyName,
-        registered_address: adminData.registeredAddress,
-        password,
-      };
-
+      let response;
+      let isReset = false;
       if (!adminData.created) {
-        // Create admin
-        await axios.post('/authentication/admin/create/', payload);
+        const payload = {
+          project_id: selectedProjectId,
+          [`${adminType}_username`]: adminData.username,
+          [`${adminType}_company`]: adminData.companyName,
+          [`${adminType}_residentAddress`]: adminData.registeredAddress,
+        };
+        response = await axios.post('/authentication/master-admin/projects/create-admins/', payload);
         message.success(`${adminType.toUpperCase()} Admin created successfully`);
       } else {
-        // Reset password
-        await axios.put('/authentication/admin/reset-password/', payload);
+        const resetPayload = {
+          username: adminData.username,
+        };
+        response = await axios.put('/authentication/admin/reset-password/', resetPayload);
         message.success(`${adminType.toUpperCase()} Admin password reset successfully`);
+        isReset = true;
       }
 
-      // Update state
-      setAdmin({ ...adminData, password, created: true });
-
-      // Download credentials text file on creation only
-      if (!adminData.created) {
-        const textContent = `Admin Type: ${adminType.toUpperCase()}\nUsername: ${adminData.username}\nPassword: ${password}\nCompany Name: ${adminData.companyName}\nRegistered Address: ${adminData.registeredAddress}\n`;
-        const element = document.createElement('a');
-        const file = new Blob([textContent], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `${adminType}_admin_credentials.txt`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+      // --- UPDATED: Get password from correct backend response path ---
+      let backendPassword: string | undefined = undefined;
+      // Try both possible response shapes
+      if (response.data?.password) {
+        backendPassword = response.data.password;
+      } else if (Array.isArray(response.data?.created_admins) && response.data.created_admins[0]?.password) {
+        backendPassword = response.data.created_admins[0].password;
       }
-    } catch (error) {
-      message.error(`Failed to ${adminData.created ? 'reset password for' : 'create'} ${adminType} admin`);
+
+      if (!backendPassword) {
+        message.error('No password returned from backend. Please check your backend API.');
+        setLoading(false);
+        return;
+      }
+
+      setAdmin({ ...adminData, password: backendPassword, created: true });
+      await fetchAdminsForProject(selectedProjectId);
+
+      // Download credentials with backend password
+      const textContent = !isReset
+        ? `Admin Type: ${adminType.toUpperCase()}\nUsername: ${adminData.username}\nPassword: ${backendPassword}\nCompany Name: ${adminData.companyName}\nRegistered Address: ${adminData.registeredAddress}\n`
+        : `RESET PASSWORD\nAdmin Type: ${adminType.toUpperCase()}\nUsername: ${adminData.username}\nNew Password: ${backendPassword}\n`;
+
+      const element = document.createElement('a');
+      const file = new Blob([textContent], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = !isReset
+        ? `${adminType}_admin_credentials.txt`
+        : `${adminType}_admin_reset_password.txt`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+
+    } catch (error: any) {
+      console.error('Error:', error);
+      message.error(`Failed to ${adminData.created ? 'reset password for' : 'create'} ${adminType} admin: ${error.response?.data?.error || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -218,7 +241,6 @@ const AdminCreation: React.FC = () => {
           </Select>
         </Form.Item>
 
-        {/* Client Admin Section */}
         <Divider orientation="left">Client Admin</Divider>
         <Form.Item label="Username" required>
           <Input
@@ -249,7 +271,6 @@ const AdminCreation: React.FC = () => {
           </Button>
         </Form.Item>
 
-        {/* EPC Admin Section */}
         <Divider orientation="left">EPC Admin</Divider>
         <Form.Item label="Username" required>
           <Input
@@ -280,7 +301,6 @@ const AdminCreation: React.FC = () => {
           </Button>
         </Form.Item>
 
-        {/* Contractor Admin Section */}
         <Divider orientation="left">Contractor Admin</Divider>
         <Form.Item label="Username" required>
           <Input

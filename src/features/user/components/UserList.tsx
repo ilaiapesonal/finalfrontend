@@ -4,7 +4,7 @@ import { EditOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-de
 import UserCreation from './UserCreation';
 import UserEdit from './UserEdit';
 import UserView from './UserView';
-import axios from '@common/utils/axiosetup';
+import api from '../../../common/utils/axiosetup';
 import type { UserData } from '../types';
 
 const UserList: React.FC = () => {
@@ -12,10 +12,13 @@ const UserList: React.FC = () => {
   const [viewingUser, setViewingUser] = useState<UserData | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [addingUser, setAddingUser] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const fetchUsers = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get('/authentication/subadmin/list/');
+      // Only fetch users created by the logged-in admin (handled by backend)
+      const response = await api.get('/authentication/projectadminuser/list/');
       if (Array.isArray(response.data)) {
         const fetchedUsers: UserData[] = response.data.map((user: any) => ({
           key: String(user.id),
@@ -34,6 +37,9 @@ const UserList: React.FC = () => {
       }
     } catch (error) {
       message.error('Failed to fetch users');
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -46,9 +52,8 @@ const UserList: React.FC = () => {
   };
 
   const handleEdit = (user: UserData) => {
-    // Ensure the user object has the id property set
     if (!user.id && user.key) {
-      user.id = user.key;
+      user.id = Number(user.key);
     }
     setEditingUser(user);
   };
@@ -65,18 +70,17 @@ const UserList: React.FC = () => {
 
   const handleDelete = async (key: string) => {
     try {
-      await axios.delete(`/authentication/subadmin/delete/${key}/`);
+      await api.delete(`/authentication/projectadminuser/delete/${key}/`);
       setUsers((prev) => prev.filter((user) => user.key !== key));
       message.success('User deleted successfully');
     } catch (error) {
       message.error('Failed to delete user');
+      console.error(error);
     }
   };
 
-  const handleSaveNewUser = async (values: any) => {
+  const handleSaveNewUser = async (newUser: any) => {
     try {
-      const response = await axios.post('/authentication/subadmin/create/', values);
-      const newUser = response.data;
       setUsers((prev) => [
         ...prev,
         {
@@ -95,38 +99,40 @@ const UserList: React.FC = () => {
       setAddingUser(false);
     } catch (error) {
       message.error('Failed to add user');
+      console.error(error);
     }
   };
 
-  const handleSaveEditedUser = (updatedUser: UserData) => {
-    const updateUser = async () => {
-      try {
-        const response = await axios.put(`/authentication/subadmin/update/${updatedUser.id}/`, updatedUser);
-        const updated = response.data;
-        setUsers((prev) =>
-          prev.map((user) =>
-            user.key === String(updated.id)
-              ? {
-                  key: String(updated.id),
-                  id: updated.id,
-                  email: updated.email,
-                  username: updated.username,
-                  name: updated.name,
-                  surname: updated.surname,
-                  department: updated.department,
-                  designation: updated.designation,
-                  phone_number: updated.phone_number,
-                }
-              : user
-          )
-        );
-        message.success('User updated successfully');
-        setEditingUser(null);
-      } catch (error) {
-        message.error('Failed to update user');
+  const handleSaveEditedUser = async (updatedUser: UserData) => {
+    try {
+      if (!updatedUser.password) {
+        delete updatedUser.password;
       }
-    };
-    updateUser();
+      const response = await api.put(`/authentication/projectadminuser/update/${updatedUser.id}/`, updatedUser);
+      const updated = response.data;
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.key === String(updated.id)
+            ? {
+                key: String(updated.id),
+                id: updated.id,
+                email: updated.email,
+                username: updated.username,
+                name: updated.name,
+                surname: updated.surname,
+                department: updated.department,
+                designation: updated.designation,
+                phone_number: updated.phone_number,
+              }
+            : user
+        )
+      );
+      message.success('User updated successfully');
+      setEditingUser(null);
+    } catch (error) {
+      message.error('Failed to update user');
+      console.error(error);
+    }
   };
 
   const columns = [
@@ -155,15 +161,24 @@ const UserList: React.FC = () => {
       <Button type="primary" icon={<PlusOutlined />} onClick={handleAddUser} style={{ marginBottom: 16 }}>
         Add User
       </Button>
-      <Table columns={columns} dataSource={users} />
+      <Table columns={columns} dataSource={users} loading={loading} />
 
-      <UserView user={viewingUser!} visible={viewingUser !== null} onClose={handleCancel} />
+      {viewingUser && (
+        <UserView 
+          user={{
+            ...viewingUser,
+            id: typeof viewingUser.id === 'string' ? parseInt(viewingUser.id) : viewingUser.id
+          }} 
+          visible={true} 
+          onClose={handleCancel} 
+        />
+      )}
 
       {editingUser && (
         <UserEdit user={editingUser} visible={true} onSave={handleSaveEditedUser} onCancel={handleCancel} />
       )}
 
-      <Modal open={addingUser} title="Add New User" footer={null} onCancel={handleCancel} destroyOnClose>
+      <Modal open={addingUser} title="Add New User" footer={null} onCancel={handleCancel} destroyOnHidden>
         <UserCreation onFinish={handleSaveNewUser} />
       </Modal>
     </div>

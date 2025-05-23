@@ -5,12 +5,16 @@ interface AuthState {
   token: string | null;
   refreshToken: string | null;
   username: string | null;
-  usertype: string | null;
+  usertype: string | null; // contractor, client, etc.
+  django_user_type: string | null; // 'projectadmin' or 'adminuser'
+  userId: string | number | null;
   isPasswordResetRequired: boolean;
   setToken: (token: string | null) => void;
   setRefreshToken: (refreshToken: string | null) => void;
   setUsername: (username: string | null) => void;
   setUsertype: (usertype: string | null) => void;
+  setDjangoUserType: (django_user_type: string | null) => void;
+  setUserId: (userId: string | number | null) => void;
   setIsPasswordResetRequired: (value: boolean) => void;
   clearToken: () => void;
   isAuthenticated: () => boolean;
@@ -29,6 +33,8 @@ const useAuthStore = create<AuthState>((set, get) => ({
   refreshToken: getStoredItem('refreshToken'),
   username: getStoredItem('username'),
   usertype: getStoredItem('usertype'),
+  django_user_type: getStoredItem('django_user_type'),
+  userId: getStoredItem('userId'),
   isPasswordResetRequired: false,
   setToken: (token: string | null) => {
     if (typeof window !== 'undefined') {
@@ -70,6 +76,26 @@ const useAuthStore = create<AuthState>((set, get) => ({
     }
     set({ usertype });
   },
+  setDjangoUserType: (django_user_type: string | null) => {
+    if (typeof window !== 'undefined') {
+      if (django_user_type) {
+        localStorage.setItem('django_user_type', django_user_type);
+      } else {
+        localStorage.removeItem('django_user_type');
+      }
+    }
+    set({ django_user_type });
+  },
+  setUserId: (userId: string | number | null) => {
+    if (typeof window !== 'undefined') {
+      if (userId !== null && userId !== undefined) {
+        localStorage.setItem('userId', String(userId));
+      } else {
+        localStorage.removeItem('userId');
+      }
+    }
+    set({ userId });
+  },
   setIsPasswordResetRequired: (value: boolean) => {
     set({ isPasswordResetRequired: value });
   },
@@ -79,8 +105,18 @@ const useAuthStore = create<AuthState>((set, get) => ({
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('username');
       localStorage.removeItem('usertype');
+      localStorage.removeItem('django_user_type');
+      localStorage.removeItem('userId');
     }
-    set({ token: null, refreshToken: null, username: null, usertype: null, isPasswordResetRequired: false });
+    set({
+      token: null,
+      refreshToken: null,
+      username: null,
+      usertype: null,
+      django_user_type: null,
+      userId: null,
+      isPasswordResetRequired: false,
+    });
   },
   isAuthenticated: () => {
     const token = get().token;

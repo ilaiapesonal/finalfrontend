@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, message } from 'antd';
 import { EditOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import ProjectCreation from '@features/project/components/ProjectCreation';
 import ProjectEdit from '@features/project/components/ProjectEdit';
 import ProjectView from '@features/project/components/ProjectView';
 import axios from '@common/utils/axiosetup';
-import useAuthStore from '@common/store/authStore';
 
 interface Project {
   key: string;
@@ -22,49 +21,48 @@ interface Project {
 }
 
 const ProjectsList: React.FC = () => {
-  const [projects, setProjects] = React.useState<Project[]>([]);
-  const [viewingProject, setViewingProject] = React.useState<Project | null>(null);
-  const [editingProject, setEditingProject] = React.useState<Project | null>(null);
-  const [addingProject, setAddingProject] = React.useState(false);
-  const authStore = useAuthStore();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [viewingProject, setViewingProject] = useState<Project | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [addingProject, setAddingProject] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const fetchProjects = async () => {
+    setLoading(true);
     try {
-      const response = await axios.get('/authentication/project/list/', {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`,
-        },
-      });
+      const response = await axios.get('/authentication/project/list/');
       console.log('API response data:', response.data);
-      if (Array.isArray(response.data) && response.data.length > 0) {
-        console.log('Full projects from API:', response.data);
-        const filteredProjects = response.data.filter((proj: any) => typeof proj.id === 'number' && proj.id !== 0);
-        console.log('Filtered projects:', filteredProjects);
-        const fetchedProjects: Project[] = filteredProjects.map((proj: any) => ({
-          key: String(proj.id),
-          id: proj.id,
-          name: proj.name,
-          category: proj.category,
-          capacity: proj.capacity,
-          location: proj.location,
-          policeStation: proj.policeStation,
-          policeContact: proj.policeContact,
-          hospital: proj.hospital,
-          hospitalContact: proj.hospitalContact,
-          commencementDate: proj.commencementDate,
-        }));
+      
+      if (Array.isArray(response.data)) {
+        const fetchedProjects: Project[] = response.data
+          .filter((proj: any) => typeof proj.id === 'number')
+          .map((proj: any) => ({
+            key: String(proj.id),
+            id: proj.id,
+            name: proj.name,
+            category: proj.category,
+            capacity: proj.capacity,
+            location: proj.location,
+            policeStation: proj.policeStation,
+            policeContact: proj.policeContact,
+            hospital: proj.hospital,
+            hospitalContact: proj.hospitalContact,
+            commencementDate: proj.commencementDate,
+          }));
+        
         setProjects(fetchedProjects);
-        console.log('Projects set in state:', fetchedProjects);
       } else {
         setProjects([]);
       }
     } catch (error) {
       message.error('Failed to fetch projects');
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchProjects();
   }, []);
 
@@ -74,10 +72,6 @@ const ProjectsList: React.FC = () => {
 
   const handleEdit = (project: Project) => {
     console.log('Editing project:', project);
-    if (!project.id) {
-      message.error('Selected project has no ID. Cannot edit.');
-      return;
-    }
     setEditingProject(project);
   };
 
@@ -93,11 +87,7 @@ const ProjectsList: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`/authentication/project/delete/${id}/`, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`,
-        },
-      });
+      await axios.delete(`/authentication/project/delete/${id}/`);
       setProjects((prev) => prev.filter((proj) => proj.id !== id));
       message.success('Project deleted successfully');
     } catch (error) {
@@ -108,39 +98,25 @@ const ProjectsList: React.FC = () => {
 
   const handleSaveNewProject = async (values: any) => {
     try {
-      const payload = {
-        name: values.projectName,
-        category: values.projectCategory,
-        capacity: values.capacity,
-        location: values.location,
-        policeStation: values.nearestPoliceStation,
-        policeContact: values.nearestPoliceStationContact,
-        hospital: values.nearestHospital,
-        hospitalContact: values.nearestHospitalContact,
-        commencementDate: values.commencementDate.format('YYYY-MM-DD'),
-      };
-      const response = await axios.post('/authentication/project/create/', payload, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`,
-        },
-      });
+
+      const response = await axios.post('/authentication/master-admin/projects/create/', values);
       const newProject = response.data;
-      setProjects((prev) => [
-        ...prev,
-        {
-          key: String(newProject.id ?? prev.length),
-          id: newProject.id ?? prev.length,
-          name: newProject.name,
-          category: newProject.category,
-          capacity: newProject.capacity,
-          location: newProject.location,
-          policeStation: newProject.policeStation,
-          policeContact: newProject.policeContact,
-          hospital: newProject.hospital,
-          hospitalContact: newProject.hospitalContact,
-          commencementDate: newProject.commencementDate,
-        },
-      ]);
+      
+      const formattedProject: Project = {
+        key: String(newProject.id),
+        id: newProject.id,
+        name: newProject.name,
+        category: newProject.category,
+        capacity: newProject.capacity,
+        location: newProject.location,
+        policeStation: newProject.policeStation,
+        policeContact: newProject.policeContact,
+        hospital: newProject.hospital,
+        hospitalContact: newProject.hospitalContact,
+        commencementDate: newProject.commencementDate,
+      };
+      
+      setProjects((prev) => [...prev, formattedProject]);
       message.success('Project added successfully');
       setAddingProject(false);
     } catch (error) {
@@ -172,25 +148,22 @@ const ProjectsList: React.FC = () => {
       <Button type="primary" icon={<PlusOutlined />} onClick={handleAddProject} style={{ marginBottom: 16 }}>
         Add Project
       </Button>
-      <Table columns={columns} dataSource={projects} />
+      <Table columns={columns} dataSource={projects} loading={loading} />
 
-      <ProjectView
-        project={viewingProject!}
-        visible={viewingProject !== null}
-        onClose={handleCancel}
-      />
+      {viewingProject && (
+        <ProjectView
+          project={viewingProject}
+          visible={viewingProject !== null}
+          onClose={handleCancel}
+        />
+      )}
 
       {editingProject && (
         <ProjectEdit
           project={editingProject}
           visible={true}
-  onSave={async (updatedProject: any) => {
-            if (!updatedProject.id) {
-              message.error('Project ID is missing. Cannot update project.');
-              return;
-            }
+          onSave={async (updatedProject: Project) => {
             try {
-              console.log('Updating project with ID:', updatedProject.id);
               const payload = {
                 name: updatedProject.name,
                 category: updatedProject.category,
@@ -202,17 +175,15 @@ const ProjectsList: React.FC = () => {
                 hospitalContact: updatedProject.hospitalContact,
                 commencementDate: updatedProject.commencementDate,
               };
-            const response = await axios.put(`/authentication/project/update/${updatedProject.id}/`, payload, {
-                headers: {
-                  Authorization: `Bearer ${authStore.token}`,
-                },
-              });
+              
+              const response = await axios.put(`/authentication/project/update/${updatedProject.id}/`, payload);
               const updated = response.data;
+              
               setProjects((prev) =>
                 prev.map((proj) =>
                   proj.id === updated.id
                     ? {
-                        key: updated.id,
+                        key: String(updated.id),
                         id: updated.id,
                         name: updated.name,
                         category: updated.category,
@@ -227,6 +198,7 @@ const ProjectsList: React.FC = () => {
                     : proj
                 )
               );
+              
               message.success('Project updated successfully');
               setEditingProject(null);
             } catch (error) {
@@ -237,17 +209,21 @@ const ProjectsList: React.FC = () => {
           onCancel={handleCancel}
         />
       )}
-
       <Modal
-        open={addingProject}
-        title="Add New Project"
-        footer={null}
-        onCancel={handleCancel}
-        destroyOnHidden
-        maskClosable={false}
-      >
-        <ProjectCreation onFinish={handleSaveNewProject} />
-      </Modal>
+  open={addingProject}
+  title="Add New Project"
+  footer={null}
+  onCancel={handleCancel}
+  maskClosable={false}
+  afterClose={() => {
+    // Any cleanup code here
+  }}
+>
+  <ProjectCreation onFinish={handleSaveNewProject} />
+</Modal>
+
+
+
     </div>
   );
 };

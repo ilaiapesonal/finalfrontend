@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, message, Typography } from 'antd';
 import type { UserData } from '../types';
 
@@ -13,6 +13,7 @@ interface UserEditProps {
 
 const UserEdit: React.FC<UserEditProps> = ({ user, visible, onSave, onCancel }) => {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -21,10 +22,23 @@ const UserEdit: React.FC<UserEditProps> = ({ user, visible, onSave, onCancel }) 
   }, [user, form]);
 
   const onFinish = (values: UserData) => {
-    // Include the id property to ensure it is passed back
-    const updatedUser = { ...values, id: user.id };
-    onSave(updatedUser);
-    message.success('User updated successfully');
+    setLoading(true);
+    try {
+      // Include the id property to ensure it is passed back
+      const updatedUser = { ...values, id: user.id };
+      
+      // Remove password field if empty or undefined to avoid backend validation error
+      if (!updatedUser.password) {
+        delete updatedUser.password;
+      }
+      
+      onSave(updatedUser);
+      message.success('User updated successfully');
+    } catch (error) {
+      message.error('Failed to update user');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!visible) {
@@ -86,8 +100,14 @@ const UserEdit: React.FC<UserEditProps> = ({ user, visible, onSave, onCancel }) 
         >
           <Input placeholder="Enter phone number" />
         </Form.Item>
+        <Form.Item
+          label="Password"
+          name="password"
+        >
+          <Input.Password placeholder="Enter new password (leave blank to keep current)" />
+        </Form.Item>
         <Form.Item>
-          <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+          <Button type="primary" htmlType="submit" style={{ width: '100%' }} loading={loading}>
             Save Changes
           </Button>
         </Form.Item>

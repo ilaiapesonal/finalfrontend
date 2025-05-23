@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Typography, message } from 'antd';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@common/store/authStore';
 
@@ -9,7 +9,17 @@ const { Title } = Typography;
 const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const setIsPasswordResetRequired = useAuthStore((state) => state.setIsPasswordResetRequired);
+  const username = useAuthStore((state) => state.username);
+  const userId = useAuthStore((state) => state.userId) as string | number | null;
+  const djangoUserType = useAuthStore((state) => state.django_user_type);
+
+  useEffect(() => {
+    if (!useAuthStore.getState().isAuthenticated()) {
+      navigate('/login');
+    }
+  }, [navigate]);
 
   const onFinish = async (values: any) => {
     if (values.newPassword !== values.confirmPassword) {
@@ -19,13 +29,26 @@ const ResetPassword: React.FC = () => {
 
     setLoading(true);
     try {
-      const username = useAuthStore.getState().username;
-      await axios.put('/authentication/admin/reset-password/', {
-        username,
-        password: values.newPassword,
-      });
+      if (djangoUserType === 'projectadmin') {
+        // Project admin self-reset
+        await api.put('/authentication/admin/reset-password/', {
+          username,
+          password: values.newPassword,
+        });
+      } else if (djangoUserType === 'adminuser' && userId) {
+        // Admin user self-reset (must use userId, not username)
+        await api.put(`/authentication/projectadminuser/reset-password/${userId}/`, {
+          password: values.newPassword,
+        });
+      } else {
+        message.error('User type not supported for password reset.');
+        setLoading(false);
+        return;
+      }
+
       message.success('Password reset successful. Please log in with your new password.');
       setIsPasswordResetRequired(false);
+      useAuthStore.getState().clearToken();
       navigate('/login');
     } catch (error) {
       message.error('Failed to reset password. Please try again.');
@@ -37,23 +60,24 @@ const ResetPassword: React.FC = () => {
   return (
     <div style={{ maxWidth: 400, margin: 'auto', padding: '40px 20px' }}>
       <Title level={2} style={{ textAlign: 'center', marginBottom: 24 }}>
-        Reset Password
+        Set New Password
       </Title>
+      <p style={{ textAlign: 'center', marginBottom: 24 }}>
+        You need to set a new password before continuing.
+      </p>
+
       <Form layout="vertical" onFinish={onFinish} size="large">
-        <Form.Item
-          label="Current Password"
-          name="currentPassword"
-          rules={[{ required: true, message: 'Please input your current password!' }]}
-        >
-          <Input.Password placeholder="Enter your current password" />
-        </Form.Item>
         <Form.Item
           label="New Password"
           name="newPassword"
-          rules={[{ required: true, message: 'Please input your new password!' }]}
+          rules={[
+            { required: true, message: 'Please input your new password!' },
+            { min: 8, message: 'Password must be at least 8 characters long' }
+          ]}
         >
           <Input.Password placeholder="Enter your new password" />
         </Form.Item>
+
         <Form.Item
           label="Confirm New Password"
           name="confirmPassword"
@@ -72,9 +96,10 @@ const ResetPassword: React.FC = () => {
         >
           <Input.Password placeholder="Confirm your new password" />
         </Form.Item>
+
         <Form.Item>
           <Button type="primary" htmlType="submit" block loading={loading}>
-            Reset Password
+            Set Password
           </Button>
         </Form.Item>
       </Form>

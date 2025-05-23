@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import moment from 'moment';
 import { Modal, Form, Input, DatePicker, Select, Button, message } from 'antd';
+import axios from '@common/utils/axiosetup';
 
 const { Option } = Select;
 
@@ -27,6 +28,7 @@ interface ProjectEditProps {
 
 const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onCancel }) => {
   const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     if (project) {
@@ -44,11 +46,12 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
     }
   }, [project, form]);
 
-  const onFinish = (values: any) => {
+  const onFinish = async (values: any) => {
     if (!project || !project.id) {
       message.error('No project selected for editing or project ID missing.');
       return;
     }
+
     const updatedProject: Project = {
       key: project.key,
       id: project.id,
@@ -62,8 +65,31 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
       hospitalContact: values.nearestHospitalContact,
       commencementDate: values.commencementDate.format('YYYY-MM-DD'),
     };
-    onSave(updatedProject);
-    message.success('Project updated successfully');
+
+    // Prepare data for API
+    const apiData = {
+      name: updatedProject.name,
+      category: updatedProject.category,
+      capacity: updatedProject.capacity,
+      location: updatedProject.location,
+      policeStation: updatedProject.policeStation,
+      policeContact: updatedProject.policeContact,
+      hospital: updatedProject.hospital,
+      hospitalContact: updatedProject.hospitalContact,
+      commencementDate: updatedProject.commencementDate,
+    };
+
+    setLoading(true);
+    try {
+      await axios.put(`/authentication/project/update/${project.id}/`, apiData);
+      onSave(updatedProject);
+      message.success('Project updated successfully');
+    } catch (error: any) {
+      console.error('Error updating project:', error);
+      message.error(error.response?.data?.error || 'Failed to update project. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,7 +98,7 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
       title="Edit Project"
       onCancel={onCancel}
       footer={null}
-    destroyOnHidden
+      destroyOnHidden={true}
     >
       <Form form={form} layout="vertical" onFinish={onFinish}>
         <Form.Item
@@ -153,7 +179,7 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
+          <Button type="primary" htmlType="submit" style={{ width: '100%' }} loading={loading}>
             Save Changes
           </Button>
         </Form.Item>

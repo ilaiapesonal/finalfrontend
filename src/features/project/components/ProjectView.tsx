@@ -1,5 +1,6 @@
 import React from 'react';
-import { Descriptions, Modal } from 'antd';
+import { Descriptions, Modal, Tag } from 'antd';
+import moment from 'moment';
 
 interface Project {
   key: string;
@@ -16,7 +17,7 @@ interface Project {
 }
 
 interface ProjectViewProps {
-  project: Project;
+  project: Project | null;
   visible: boolean;
   onClose: () => void;
 }
@@ -25,23 +26,46 @@ const ProjectView: React.FC<ProjectViewProps> = ({ project, visible, onClose }) 
   if (!project) {
     return null;
   }
+  
+  // Format category for display
+  const getCategoryDisplay = (category: string) => {
+    switch (category) {
+      case 'residential':
+        return <Tag color="green">Residential</Tag>;
+      case 'commercial':
+        return <Tag color="blue">Commercial</Tag>;
+      case 'industrial':
+        return <Tag color="orange">Industrial</Tag>;
+      case 'infrastructure':
+        return <Tag color="purple">Infrastructure</Tag>;
+      default:
+        return category;
+    }
+  };
+  
+  // Format date for better readability
+  const formattedDate = project.commencementDate ? 
+    moment(project.commencementDate).format('MMMM D, YYYY') : 
+    'Not specified';
+  
   return (
     <Modal
       open={visible}
-      title="View Project"
+      title={`Project Details: ${project.name}`}
       footer={null}
       onCancel={onClose}
+      width={600}
     >
       <Descriptions bordered column={1}>
         <Descriptions.Item label="Project Name">{project.name}</Descriptions.Item>
-        <Descriptions.Item label="Project Category">{project.category}</Descriptions.Item>
+        <Descriptions.Item label="Project Category">{getCategoryDisplay(project.category)}</Descriptions.Item>
         <Descriptions.Item label="Capacity / Size">{project.capacity}</Descriptions.Item>
         <Descriptions.Item label="Location">{project.location}</Descriptions.Item>
         <Descriptions.Item label="Nearest Police Station">{project.policeStation}</Descriptions.Item>
         <Descriptions.Item label="Police Station Contact">{project.policeContact}</Descriptions.Item>
         <Descriptions.Item label="Nearest Hospital">{project.hospital}</Descriptions.Item>
         <Descriptions.Item label="Hospital Contact">{project.hospitalContact}</Descriptions.Item>
-        <Descriptions.Item label="Commencement Date">{project.commencementDate}</Descriptions.Item>
+        <Descriptions.Item label="Commencement Date">{formattedDate}</Descriptions.Item>
       </Descriptions>
     </Modal>
   );

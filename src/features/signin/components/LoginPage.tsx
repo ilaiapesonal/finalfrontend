@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@common/store/authStore';
 import { Form, Input, Button, Typography, Checkbox, Row, Col, message, notification } from 'antd';
@@ -10,31 +10,52 @@ const { Title } = Typography;
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const setToken = useAuthStore((state) => state.setToken);
+  const setRefreshToken = useAuthStore((state) => state.setRefreshToken);
+  const setUsername = useAuthStore((state) => state.setUsername);
   const setUsertype = useAuthStore((state) => state.setUsertype);
-  const logout = useAuthStore((state) => state.logout);
+  const setDjangoUserType = useAuthStore((state) => state.setDjangoUserType);
+  const setUserId = useAuthStore((state) => state.setUserId);
+  const clearToken = useAuthStore((state) => state.clearToken);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const onFinish = async (values: any) => {
     try {
-      const response = await axios.post('/authentication/login/', {
+      const response = await api.post('/authentication/login/', {
         username: values.username,
         password: values.password,
       });
-      // Assuming the backend returns a token on successful login
-      console.log('Full login response data:', response.data);
+
+      // Extract all relevant fields from backend response
       const token = response.data.access || response.data.token;
       const refreshToken = response.data.refresh;
-      const username = response.data.username || response.data.user?.username || null;
-      const usertype = response.data.usertype || response.data.user?.usertype || null;
+      const username = response.data.username || null;
+      const userType = response.data.usertype || null;
+      const djangoUserType = response.data.django_user_type || null;
+      const userId = response.data.userId || response.data.user_id || null;
       const isPasswordResetRequired = response.data.isPasswordResetRequired || false;
 
-      console.log('Login response tokens:', { token, refreshToken, username, usertype, isPasswordResetRequired });
+      if (!token || !refreshToken) {
+        notification.error({
+          message: 'Login Failed',
+          description: 'Token or refresh token is missing from the server response.',
+          placement: 'topRight',
+          duration: 5,
+          style: { fontWeight: 'bold' },
+        });
+        return;
+      }
+
+      // Set all values in Zustand store (and localStorage)
       setToken(token);
-      useAuthStore.getState().setRefreshToken(refreshToken);
-      useAuthStore.getState().setUsername(username);
-      setUsertype(usertype);
+      setRefreshToken(refreshToken);
+      setUsername(username);
+      setUsertype(userType);
+      setDjangoUserType(djangoUserType); // <-- This sets localStorage 'django_user_type'
+      setUserId(userId);
       useAuthStore.getState().setIsPasswordResetRequired(isPasswordResetRequired);
-      console.log('AuthStore state after setting tokens:', useAuthStore.getState());
+
+      // Debug: Check if django_user_type is set in localStorage
+      // console.log('django_user_type in localStorage:', localStorage.getItem('django_user_type'));
 
       message.success('Login successful!');
 
@@ -53,26 +74,44 @@ const LoginPage: React.FC = () => {
           style: { fontWeight: 'bold' },
         });
       } else {
-        message.error('Login failed. Please try again later.');
+        notification.error({
+          message: 'Login Failed',
+          description: 'An unexpected error occurred. Please try again later.',
+          placement: 'topRight',
+          duration: 5,
+          style: { fontWeight: 'bold' },
+        });
       }
     }
   };
 
+
   const handleLogout = async () => {
     try {
-      await logout();
+      const refreshToken = useAuthStore.getState().refreshToken;
+
+      if (refreshToken) {
+        await api.post('/authentication/logout/', {
+          refresh: refreshToken
+        });
+      }
+
+      clearToken();
+
       notification.success({
         message: 'Logged out successfully',
         placement: 'topRight',
         duration: 3,
         style: { fontWeight: 'bold' },
       });
-      // Delay navigation slightly to allow notification to show
+
       setTimeout(() => {
         navigate('/signin');
       }, 1500);
     } catch (error) {
       message.error('Logout failed. Please try again.');
+      clearToken();
+      navigate('/signin');
     }
   };
 
