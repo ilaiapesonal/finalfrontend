@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Dropdown, Avatar, Badge, Typography, Space, message } from 'antd';
+import { Layout, Menu, Dropdown, Avatar, Badge, Typography, Space, message, notification } from 'antd';
 import {
   UserOutlined,
   BellOutlined,
@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '@common/store/authStore';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 import ProjectsList from '@features/project/components/ProjectsList';
 import AdminCreation from '@features/admin/components/AdminCreation';
 import UserList from '@features/user/components/UserList';
@@ -29,6 +29,8 @@ const Dashboard: React.FC = () => {
     }
     return 'overview';
   });
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+
   const navigate = useNavigate();
   const clearToken = useAuthStore((state) => state.clearToken);
   const username = useAuthStore((state) => state.username);
@@ -37,9 +39,34 @@ const Dashboard: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const refreshToken = useAuthStore((state) => state.refreshToken);
 
+  // Fetch pending approvals for projectadmin
   useEffect(() => {
-    console.log('Dashboard username:', username);
-  }, [username]);
+    if (djangoUserType === 'projectadmin') {
+      const fetchPendingApprovals = async () => {
+        try {
+          const response = await api.get('/authentication/userdetail/');
+          const pending = Array.isArray(response.data)
+            ? response.data.filter((detail: any) => detail.approve === false)
+            : [];
+          setPendingApprovalCount(pending.length);
+        } catch (error) {
+          // Optionally handle error
+        }
+      };
+      fetchPendingApprovals();
+    }
+  }, [djangoUserType]);
+
+  // Show notification when pendingApprovalCount changes and is > 0
+  useEffect(() => {
+    if (pendingApprovalCount > 0) {
+      notification.info({
+        message: 'Pending User Approvals',
+        description: `There are ${pendingApprovalCount} user(s) waiting for approval.`,
+        duration: 5,
+      });
+    }
+  }, [pendingApprovalCount]);
 
   const handleMenuClick = (e: any) => {
     setSelectedKey(e.key);
@@ -66,7 +93,7 @@ const Dashboard: React.FC = () => {
         navigate('/login');
         return;
       }
-      await axios.post(
+      await api.post(
         '/authentication/logout/',
         { refresh: refreshToken },
         {
@@ -78,7 +105,7 @@ const Dashboard: React.FC = () => {
       );
       clearToken();
       message.success('Logged out successfully');
-      navigate('/login'); // Redirect to login page
+      navigate('/login');
     } catch (error) {
       message.error('Logout failed. Please try again.');
     }
@@ -122,22 +149,22 @@ const Dashboard: React.FC = () => {
           mode="inline"
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
-        items={
-          djangoUserType === 'adminuser'
-            ? []
-            : usertype === 'master'
-            ? [
-                { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
-                { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
-                { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
-                { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
-              ]
-            : ['client', 'epc', 'contractor'].includes(usertype ?? '')
-            ? [
-                { key: 'users', icon: <UserOutlined />, label: 'Users' },
-              ]
-            : []
-        }
+          items={
+            djangoUserType === 'adminuser'
+              ? []
+              : usertype === 'master'
+              ? [
+                  { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
+                  { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
+                  { key: 'projects', icon: <ProjectOutlined />, label: 'Projects' },
+                  { key: 'adminusers', icon: <TeamOutlined />, label: 'Admin Users' },
+                ]
+              : ['client', 'epc', 'contractor'].includes(usertype ?? '')
+              ? [
+                  { key: 'users', icon: <UserOutlined />, label: 'Users' },
+                ]
+              : []
+          }
         />
       </Sider>
       <Layout>
@@ -149,12 +176,12 @@ const Dashboard: React.FC = () => {
             <Text style={{ fontWeight: 'bold', fontSize: 16, color: '#333' }}>
               Welcome, {username || 'User'}
             </Text>
-            <Badge count={5} size="small">
+            <Badge count={pendingApprovalCount} size="small">
               <BellOutlined style={{ fontSize: 20, cursor: 'pointer' }} />
             </Badge>
-          <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight" arrow>
-            <Avatar style={{ backgroundColor: '#7265e6', cursor: 'pointer' }} icon={<UserOutlined />} />
-          </Dropdown>
+            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight" arrow>
+              <Avatar style={{ backgroundColor: '#7265e6', cursor: 'pointer' }} icon={<UserOutlined />} />
+            </Dropdown>
           </Space>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: '#fff', minHeight: 360 }}>
