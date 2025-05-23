@@ -15,6 +15,7 @@ import axios from '@common/utils/axiosetup';
 import ProjectsList from '@features/project/components/ProjectsList';
 import AdminCreation from '@features/admin/components/AdminCreation';
 import UserList from '@features/user/components/UserList';
+import UserDetail from '@features/user/components/userdetail';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -32,6 +33,7 @@ const Dashboard: React.FC = () => {
   const clearToken = useAuthStore((state) => state.clearToken);
   const username = useAuthStore((state) => state.username);
   const usertype = useAuthStore((state) => state.usertype);
+  const djangoUserType = useAuthStore((state) => state.django_user_type);
   const token = useAuthStore((state) => state.token);
   const refreshToken = useAuthStore((state) => state.refreshToken);
 
@@ -43,6 +45,17 @@ const Dashboard: React.FC = () => {
     setSelectedKey(e.key);
     if (typeof window !== 'undefined') {
       localStorage.setItem('selectedMenu', e.key);
+    }
+  };
+
+  const handleUserMenuClick = (e: any) => {
+    if (e.key === 'profile') {
+      setSelectedKey('profile');
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('selectedMenu', 'profile');
+      }
+    } else if (e.key === 'logout') {
+      handleLogout();
     }
   };
 
@@ -75,7 +88,7 @@ const Dashboard: React.FC = () => {
     { key: 'profile', icon: <UserOutlined />, label: 'Profile' },
     { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
     { type: 'divider' as 'divider' },
-    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout', onClick: handleLogout },
+    { key: 'logout', icon: <LogoutOutlined />, label: 'Logout' },
   ];
 
   const renderContent = () => {
@@ -86,6 +99,8 @@ const Dashboard: React.FC = () => {
         return <AdminCreation />;
       case 'users':
         return <UserList />;
+      case 'profile':
+        return <UserDetail />;
       default:
         return (
           <>
@@ -108,7 +123,9 @@ const Dashboard: React.FC = () => {
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
         items={
-          usertype === 'master'
+          djangoUserType === 'adminuser'
+            ? []
+            : usertype === 'master'
             ? [
                 { key: 'overview', icon: <DashboardOutlined />, label: 'Overview' },
                 { key: 'settings', icon: <SettingOutlined />, label: 'Settings' },
@@ -135,9 +152,9 @@ const Dashboard: React.FC = () => {
             <Badge count={5} size="small">
               <BellOutlined style={{ fontSize: 20, cursor: 'pointer' }} />
             </Badge>
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
-              <Avatar style={{ backgroundColor: '#7265e6', cursor: 'pointer' }} icon={<UserOutlined />} />
-            </Dropdown>
+          <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight" arrow>
+            <Avatar style={{ backgroundColor: '#7265e6', cursor: 'pointer' }} icon={<UserOutlined />} />
+          </Dropdown>
           </Space>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: '#fff', minHeight: 360 }}>

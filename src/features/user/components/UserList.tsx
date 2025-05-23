@@ -7,7 +7,15 @@ import UserView from './UserView';
 import api from '../../../common/utils/axiosetup';
 import type { UserData } from '../types';
 
+import useAuthStore from '@common/store/authStore';
+
 const UserList: React.FC = () => {
+  const djangoUserType = useAuthStore((state) => state.django_user_type);
+
+  if (djangoUserType === 'adminuser') {
+    return <div>You do not have permission to view this page.</div>;
+  }
+
   const [users, setUsers] = useState<UserData[]>([]);
   const [viewingUser, setViewingUser] = useState<UserData | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
@@ -158,9 +166,11 @@ const UserList: React.FC = () => {
 
   return (
     <div>
-      <Button type="primary" icon={<PlusOutlined />} onClick={handleAddUser} style={{ marginBottom: 16 }}>
-        Add User
-      </Button>
+      {djangoUserType !== 'adminuser' && (
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleAddUser} style={{ marginBottom: 16 }}>
+          Add User
+        </Button>
+      )}
       <Table columns={columns} dataSource={users} loading={loading} />
 
       {viewingUser && (
