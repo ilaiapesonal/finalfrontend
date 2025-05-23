@@ -1,5 +1,4 @@
 import axios from 'axios';
-import Cookies from 'js-cookie';
 import useAuthStore from '../store/authStore';
 import refreshToken from './tokenrefresh';
 
@@ -12,15 +11,6 @@ api.interceptors.request.use(
     const token = useAuthStore.getState().token;
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
-    }
-    // Add CSRF token for unsafe methods (POST, PUT, PATCH, DELETE)
-    const csrfToken = Cookies.get('csrftoken');
-    if (
-      csrfToken &&
-      config.headers &&
-      ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')
-    ) {
-      config.headers['X-CSRFToken'] = csrfToken;
     }
     return config;
   },
@@ -38,6 +28,7 @@ const processQueue = (error: any, token: string | null = null) => {
       prom.resolve(token);
     }
   });
+
   failedQueue = [];
 };
 

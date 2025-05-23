@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Button, Select, message, Typography, Divider } from 'antd';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 import useAuthStore from '@common/store/authStore';
 import { useNavigate } from 'react-router-dom';
 
@@ -45,7 +45,7 @@ const AdminCreation: React.FC = () => {
     }
     const fetchProjects = async () => {
       try {
-        const response = await axios.get('/authentication/project/list/');
+        const response = await api.get('/authentication/project/list/');
         if (Array.isArray(response.data)) {
           setProjects(response.data);
         } else {
@@ -65,7 +65,7 @@ const AdminCreation: React.FC = () => {
   const fetchAdminsForProject = async (projectId: number) => {
     try {
       let url = `/authentication/admin/list/${projectId}/`;
-      const response = await axios.get(url);
+      const response = await api.get(url);
       if (response.data) {
         const admins = response.data;
         if (admins.clientAdmin) {
@@ -166,13 +166,13 @@ const AdminCreation: React.FC = () => {
           [`${adminType}_company`]: adminData.companyName,
           [`${adminType}_residentAddress`]: adminData.registeredAddress,
         };
-        response = await axios.post('/authentication/master-admin/projects/create-admins/', payload);
+        response = await api.post('/authentication/master-admin/projects/create-admins/', payload);
         message.success(`${adminType.toUpperCase()} Admin created successfully`);
       } else {
         const resetPayload = {
           username: adminData.username,
         };
-        response = await axios.put('/authentication/admin/reset-password/', resetPayload);
+        response = await api.put('/authentication/admin/reset-password/', resetPayload);
         message.success(`${adminType.toUpperCase()} Admin password reset successfully`);
         isReset = true;
       }

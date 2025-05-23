@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, DatePicker, Select, Typography, message } from 'antd';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -42,7 +42,7 @@ const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish, onSuccess }
     setLoading(true);
     try {
       // Use the master admin project creation endpoint
-      await axios.post('/authentication/master-admin/projects/create/', apiData);
+      await api.post('/authentication/master-admin/projects/create/', apiData);
       message.success('Project created successfully!');
       form.resetFields();
       

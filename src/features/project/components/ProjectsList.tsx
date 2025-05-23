@@ -4,7 +4,7 @@ import { EditOutlined, DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-de
 import ProjectCreation from '@features/project/components/ProjectCreation';
 import ProjectEdit from '@features/project/components/ProjectEdit';
 import ProjectView from '@features/project/components/ProjectView';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 
 interface Project {
   key: string;
@@ -30,7 +30,7 @@ const ProjectsList: React.FC = () => {
   const fetchProjects = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/authentication/project/list/');
+      const response = await api.get('/authentication/project/list/');
       console.log('API response data:', response.data);
       
       if (Array.isArray(response.data)) {
@@ -87,7 +87,7 @@ const ProjectsList: React.FC = () => {
 
   const handleDelete = async (id: number) => {
     try {
-      await axios.delete(`/authentication/project/delete/${id}/`);
+      await api.delete(`/authentication/project/delete/${id}/`);
       setProjects((prev) => prev.filter((proj) => proj.id !== id));
       message.success('Project deleted successfully');
     } catch (error) {
@@ -99,7 +99,7 @@ const ProjectsList: React.FC = () => {
   const handleSaveNewProject = async (values: any) => {
     try {
 
-      const response = await axios.post('/authentication/master-admin/projects/create/', values);
+      const response = await api.post('/authentication/master-admin/projects/create/', values);
       const newProject = response.data;
       
       const formattedProject: Project = {
@@ -176,7 +176,7 @@ const ProjectsList: React.FC = () => {
                 commencementDate: updatedProject.commencementDate,
               };
               
-              const response = await axios.put(`/authentication/project/update/${updatedProject.id}/`, payload);
+              const response = await api.put(`/authentication/project/update/${updatedProject.id}/`, payload);
               const updated = response.data;
               
               setProjects((prev) =>

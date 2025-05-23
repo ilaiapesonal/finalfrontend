@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import moment from 'moment';
 import { Modal, Form, Input, DatePicker, Select, Button, message } from 'antd';
-import axios from '@common/utils/axiosetup';
+import api from '@common/utils/axiosetup';
 
 const { Option } = Select;
 
@@ -81,7 +81,7 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
 
     setLoading(true);
     try {
-      await axios.put(`/authentication/project/update/${project.id}/`, apiData);
+      await api.put(`/authentication/project/update/${project.id}/`, apiData);
       onSave(updatedProject);
       message.success('Project updated successfully');
     } catch (error: any) {
