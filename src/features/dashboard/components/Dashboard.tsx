@@ -160,14 +160,13 @@ const Dashboard: React.FC = () => {
         return <AdminCreation />;
       case 'users':
         return <UserList />;
-      case 'profile':
-        return (
-          <UserDetail
-            userToApprove={userToApprove}
-            setUserToApprove={setUserToApprove}
-            onApprovalSuccess={handleApprovalSuccess}
-          />
-        );
+        case 'profile':
+          return (
+            <UserDetail
+              userToApprove={userToApprove}
+              onApprovalSuccess={handleApprovalSuccess}
+            />
+          );
       case 'settings':
         return <CompanyDetailsForm />;
       default:
