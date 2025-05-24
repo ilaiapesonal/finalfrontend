@@ -1,37 +1,72 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Select, DatePicker, Upload, Button, Row, Col, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import type { RcFile, UploadChangeParam } from 'antd/es/upload';
+import type { RcFile, UploadChangeParam, UploadFile } from 'antd/es/upload'; // Added UploadFile
 import moment from 'moment';
 import api from '../../../common/utils/axiosetup';
 
 const { Option } = Select;
-const { TextArea } = Input;
 
-interface UserDetailForm {
+// Interface for the data structure coming from the API (snake_case)
+interface UserDetailApiResponse {
+  id: number;
+  user: number; // Or a nested user object if serialized deeply
+  employee_id: string;
+  gender: string;
+  father_or_spouse_name: string;
+  date_of_birth: string | null; // ISO date string
+  nationality: string;
+  education_level: string;
+  date_of_joining: string | null; // ISO date string
+  mobile: string;
+  uan: string;
+  pan: string;
+  pan_attachment: string | null; // URL string
+  aadhaar: string;
+  aadhaar_attachment: string | null; // URL string
+  mark_of_identification: string;
+  photo: string | null; // URL string
+  specimen_signature: string | null; // URL string
+  is_approved: boolean;
+  approved_by: number | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  name: string; // From serializer custom field
+  surname: string; // From serializer custom field
+  designation: string; // From serializer custom field
+  department: string; // From serializer custom field
+  email: string; // From serializer custom field
+}
+
+
+// Interface for the form's state (camelCase for form items, File objects for uploads)
+interface UserDetailFormState {
   employeeId: string;
-  name: string;
-  surname: string;
   gender: string;
   fatherOrSpouseName: string;
   dateOfBirth: moment.Moment | null;
   nationality: string;
   educationLevel: string;
   dateOfJoining: moment.Moment | null;
-  department: string;
-  designation: string;
-  email: string;
   mobile: string;
   uan: string;
   pan: string;
-  panAttachment: RcFile | null;
   aadhaar: string;
-  aadhaarAttachment: RcFile | null;
-  presentAddress: string;
-  permanentAddress: string;
   markOfIdentification: string;
-  photo: RcFile | null;
-  specimenSignature: RcFile | null;
+
+  // Read-only fields displayed in form
+  name: string;
+  surname: string;
+  designation: string;
+  department: string;
+  email: string;
+
+  // File objects for new uploads
+  panAttachmentFile: RcFile | null;
+  aadhaarAttachmentFile: RcFile | null;
+  photoFile: RcFile | null;
+  specimenSignatureFile: RcFile | null;
 }
 
 const normFile = (e: any) => {
@@ -41,141 +76,182 @@ const normFile = (e: any) => {
   return e && e.fileList;
 };
 
-const UserDetail: React.FC = () => {
-  const [form] = Form.useForm();
+// Helper to create AntD file list item from URL
+const createFileListItem = (url: string | null, fieldName: string): UploadFile[] => {
+  if (!url) return [];
+  return [{
+    uid: `-${fieldName}-${Date.now()}`,
+    name: url.substring(url.lastIndexOf('/') + 1) || fieldName,
+    status: 'done',
+    url: url,
+  }];
+};
 
-  const [formData, setFormData] = useState<UserDetailForm>({
-    employeeId: '',
-    name: '',
-    surname: '',
-    gender: '',
-    fatherOrSpouseName: '',
-    dateOfBirth: null,
-    nationality: '',
-    educationLevel: '',
-    dateOfJoining: null,
-    department: '',
-    designation: '',
-    email: '',
-    mobile: '',
-    uan: '',
-    pan: '',
+
+interface UserDetailProps {
+  userToApprove?: any | null;
+  onApprovalSuccess?: (approvedUserId: number) => void;
+}
+
+const UserDetail: React.FC<UserDetailProps> = ({ userToApprove }) => {
+  const [form] = Form.useForm();
+  // State to hold actual File objects for uploading
+  const [fileObjects, setFileObjects] = useState<{
+    panAttachment: RcFile | null;
+    aadhaarAttachment: RcFile | null;
+    photo: RcFile | null;
+    specimenSignature: RcFile | null;
+  }>({
     panAttachment: null,
-    aadhaar: '',
     aadhaarAttachment: null,
-    presentAddress: '',
-    permanentAddress: '',
-    markOfIdentification: '',
     photo: null,
     specimenSignature: null,
   });
+  
+  // To track if data has been loaded, to prevent overriding form with initial empty state
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // State to track if form is read-only (approved)
+  // Removed readOnly state as it is unused and causing TS warning
 
   useEffect(() => {
     const fetchUserDetail = async () => {
       try {
-        const response = await api.get('authentication/userdetail/');
-        const data = response.data;
+        let data: UserDetailApiResponse;
+        if (userToApprove && userToApprove.id) {
+          // If userToApprove is passed, use that data directly or fetch by id if needed
+          // Assuming userToApprove has all necessary fields
+          data = userToApprove;
+        } else {
+          const response = await api.get<UserDetailApiResponse>('authentication/userdetail/');
+          data = response.data;
+        }
 
-        setFormData({
-          employeeId: data.employeeId || '',
+        // Map API response (snake_case) to form values (camelCase)
+        const formValues = {
+          employeeId: data.employee_id || '',
           name: data.name || '',
           surname: data.surname || '',
           gender: data.gender || '',
-          fatherOrSpouseName: data.fatherOrSpouseName || '',
-          dateOfBirth: data.dateOfBirth ? moment(data.dateOfBirth) : null,
+          fatherOrSpouseName: data.father_or_spouse_name || '',
+          dateOfBirth: data.date_of_birth ? moment(data.date_of_birth) : null,
           nationality: data.nationality || '',
-          educationLevel: data.educationLevel || '',
-          dateOfJoining: data.dateOfJoining ? moment(data.dateOfJoining) : null,
+          educationLevel: data.education_level || '',
+          dateOfJoining: data.date_of_joining ? moment(data.date_of_joining) : null,
           department: data.department || '',
           designation: data.designation || '',
           email: data.email || '',
           mobile: data.mobile || '',
           uan: data.uan || '',
           pan: data.pan || '',
-          panAttachment: null,
           aadhaar: data.aadhaar || '',
-          aadhaarAttachment: null,
-          presentAddress: data.presentAddress || '',
-          permanentAddress: data.permanentAddress || '',
-          markOfIdentification: data.markOfIdentification || '',
-          photo: null,
-          specimenSignature: null,
-        });
-
-        form.setFieldsValue({
-          ...data,
-          dateOfBirth: data.dateOfBirth ? moment(data.dateOfBirth) : null,
-          dateOfJoining: data.dateOfJoining ? moment(data.dateOfJoining) : null,
-          panAttachment: [],
-          aadhaarAttachment: [],
-          photo: [],
-          specimenSignature: [],
-        });
+          markOfIdentification: data.mark_of_identification || '',
+          
+          // For AntD Upload components, set up fileList to show existing files
+          panAttachment: createFileListItem(data.pan_attachment, 'pan'),
+          aadhaarAttachment: createFileListItem(data.aadhaar_attachment, 'aadhaar'),
+          photo: createFileListItem(data.photo, 'photo'),
+          specimenSignature: createFileListItem(data.specimen_signature, 'specimen_signature'),
+        };
+        form.setFieldsValue(formValues);
+        setDataLoaded(true); // Mark data as loaded
+        // setReadOnly(data.is_approved); // Removed as readOnly state is removed
       } catch (error) {
         message.error('Failed to load user details.');
       }
     };
 
     fetchUserDetail();
-  }, [form]);
+  }, [form, userToApprove]);
 
-  const handleUploadChange = (name: keyof UserDetailForm) => (info: UploadChangeParam) => {
-    setFormData(prev => ({
-      ...prev,
-      [name]: info.fileList && info.fileList.length > 0 ? info.fileList[0].originFileObj : null,
-    }));
+  const handleUploadChange = (fieldName: keyof typeof fileObjects) => (info: UploadChangeParam) => {
+    if (info.fileList && info.fileList.length > 0) {
+      // User selected/changed a file
+      setFileObjects(prev => ({
+        ...prev,
+        [fieldName]: info.fileList[0].originFileObj || null,
+      }));
+    } else {
+      // User removed a file
+      setFileObjects(prev => ({
+        ...prev,
+        [fieldName]: null,
+      }));
+    }
   };
 
-  const onValuesChange = (_changedValues: any, allValues: any) => {
-    setFormData(prev => ({
-      ...prev,
-      ...allValues,
-    }));
-  };
 
-  const onFinish = async (values: any) => {
-    // Validate required file fields
-    if (!formData.panAttachment || !formData.aadhaarAttachment || !formData.photo || !formData.specimenSignature) {
-      message.error('Please upload all required files: PAN, AADHAAR, Photo, and Signature.');
+  const onFinish = async (values: Omit<UserDetailFormState, 'panAttachmentFile' | 'aadhaarAttachmentFile' | 'photoFile' | 'specimenSignatureFile'>) => {
+    // `values` contains text fields and date objects from the form.
+    // `fileObjects` state contains the actual File objects.
+
+    // Validate required file fields from our dedicated state
+    if (!fileObjects.panAttachment && !form.getFieldValue('panAttachment')?.length) { // Check if new file selected or existing file present
+      message.error('Please upload PAN Attachment.');
       return;
     }
-
-    // Validate required text fields
-    const requiredFields = [
-      'employeeId', 'name', 'surname', 'gender', 'fatherOrSpouseName', 'dateOfBirth',
-      'nationality', 'educationLevel', 'dateOfJoining', 'department', 'designation',
-      'email', 'mobile', 'uan', 'pan', 'aadhaar', 'presentAddress', 'permanentAddress', 'markOfIdentification'
-    ];
-    for (const field of requiredFields) {
-      if (!values[field]) {
-        message.error(`Please fill the required field: ${field}`);
-        return;
-      }
+    if (!fileObjects.aadhaarAttachment && !form.getFieldValue('aadhaarAttachment')?.length) {
+      message.error('Please upload AADHAAR Attachment.');
+      return;
     }
+    if (!fileObjects.photo && !form.getFieldValue('photo')?.length) {
+      message.error('Please upload Photo.');
+      return;
+    }
+    if (!fileObjects.specimenSignature && !form.getFieldValue('specimenSignature')?.length) {
+      message.error('Please upload Signature.');
+      return;
+    }
+    
+    // No need for this manual text field validation, AntD `rules` handle it.
+    // const requiredFields = [ ... ];
 
     const formPayload = new FormData();
 
-    // Append text fields
-    formPayload.append('employeeId', values.employeeId || '');
+    // Append text fields using snake_case keys
+    formPayload.append('employee_id', values.employeeId || '');
     formPayload.append('gender', values.gender || '');
-    formPayload.append('fatherOrSpouseName', values.fatherOrSpouseName || '');
-    formPayload.append('dateOfBirth', values.dateOfBirth ? values.dateOfBirth.format('YYYY-MM-DD') : '');
+    formPayload.append('father_or_spouse_name', values.fatherOrSpouseName || '');
+    formPayload.append('date_of_birth', values.dateOfBirth ? values.dateOfBirth.format('YYYY-MM-DD') : '');
     formPayload.append('nationality', values.nationality || '');
-    formPayload.append('educationLevel', values.educationLevel || '');
-    formPayload.append('dateOfJoining', values.dateOfJoining ? values.dateOfJoining.format('YYYY-MM-DD') : '');
+    formPayload.append('education_level', values.educationLevel || '');
+    formPayload.append('date_of_joining', values.dateOfJoining ? values.dateOfJoining.format('YYYY-MM-DD') : '');
     formPayload.append('mobile', values.mobile || '');
     formPayload.append('uan', values.uan || '');
     formPayload.append('pan', values.pan || '');
     formPayload.append('aadhaar', values.aadhaar || '');
-    formPayload.append('presentAddress', values.presentAddress || '');
-    formPayload.append('permanentAddress', values.permanentAddress || '');
-    formPayload.append('markOfIdentification', values.markOfIdentification || '');
+    formPayload.append('mark_of_identification', values.markOfIdentification || '');
 
-    // Append files
-    formPayload.append('panAttachment', formData.panAttachment);
-    formPayload.append('aadhaarAttachment', formData.aadhaarAttachment);
-    formPayload.append('photo', formData.photo);
-    formPayload.append('specimenSignature', formData.specimenSignature);
+    // Append files IF a new file has been selected.
+    // If a file is optional and the user wants to remove it, the backend should handle null/empty string for the field.
+    // Here, we only send the file if it's a new one. If it's not in fileObjects, it means
+    // either an old one exists (and we don't resend it unless changed) or it's being cleared.
+    // DRF behavior: if a file field is not in the request, it's typically not changed.
+    // To clear a file, you might need to send null or an empty string, depending on serializer's `allow_null`.
+    // For simplicity, this only sends *newly uploaded* files.
+    
+    if (fileObjects.panAttachment) {
+      formPayload.append('pan_attachment', fileObjects.panAttachment);
+    }
+    if (fileObjects.aadhaarAttachment) {
+      formPayload.append('aadhaar_attachment', fileObjects.aadhaarAttachment);
+    }
+    if (fileObjects.photo) {
+      formPayload.append('photo', fileObjects.photo);
+    }
+    if (fileObjects.specimenSignature) {
+      formPayload.append('specimen_signature', fileObjects.specimenSignature);
+    }
+    
+    // If you need to explicitly clear a file, you might send `field_name: null`
+    // For example, if `fileObjects.photo` is `null` AND there was an existing photo,
+    // you might append `formPayload.append('photo', '');` or `formPayload.append('photo', null);`
+    // For FileField/ImageField to clear it, often sending an empty string or null (if allow_null=True) works.
+    // For this example, if a file is removed in UI and `fileObjects.fieldName` is null,
+    // we don't append it. Backend will keep the old file.
+    // If you want to allow clearing, you need to send a specific signal, e.g. an empty string.
+    // e.g. if (!fileObjects.photo && form.getFieldValue('photo')?.length === 0 && initialPhotoUrlExisted) { formPayload.append('photo', ''); }
+
 
     try {
       await api.put('authentication/userdetail/', formPayload, {
@@ -184,20 +260,36 @@ const UserDetail: React.FC = () => {
         },
       });
       message.success('User details updated successfully.');
-    } catch (error) {
-      message.error('Failed to update user details.');
+    } catch (error: any) {
+      if (error.response && error.response.data) {
+        // Log or display specific backend validation errors
+        console.error('Backend validation errors:', error.response.data);
+        // You can iterate through error.response.data and display messages
+        let errorMessages = 'Failed to update user details. ';
+        for (const key in error.response.data) {
+            errorMessages += `${key}: ${error.response.data[key].join(', ')} `;
+        }
+        message.error(errorMessages);
+      } else {
+        message.error('Failed to update user details.');
+      }
     }
   };
+
+  // Removed onValuesChange as it was problematic.
+  // Ant Design Form manages its own state for text/date inputs.
+  // We use `fileObjects` state specifically for file uploads.
+  // Removed initialValues from <Form> to rely solely on form.setFieldsValue from useEffect
 
   return (
     <Form
       form={form}
       layout="vertical"
-      initialValues={formData}
-      onValuesChange={onValuesChange}
+      // initialValues removed, form.setFieldsValue in useEffect handles population
       onFinish={onFinish}
       style={{ maxWidth: 800, margin: '0 auto' }}
     >
+      {/* Employee ID and Name */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Employee ID" name="employeeId" rules={[{ required: true, message: 'Employee ID is required' }]}>
@@ -211,6 +303,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Surname and Gender */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Surname" name="surname" rules={[{ required: true, message: 'Surname is required' }]}>
@@ -228,6 +321,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Father/Spouse Name and Date of Birth */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Father’s/Spouse Name" name="fatherOrSpouseName" rules={[{ required: true, message: 'Father/Spouse Name is required' }]}>
@@ -241,6 +335,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Nationality and Education Level */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Nationality" name="nationality" rules={[{ required: true, message: 'Nationality is required' }]}>
@@ -254,6 +349,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Date of Joining and Department */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Date of Joining" name="dateOfJoining" rules={[{ required: true, message: 'Date of Joining is required' }]}>
@@ -267,6 +363,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Designation and Email */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Designation" name="designation" rules={[{ required: true, message: 'Designation is required' }]}>
@@ -280,6 +377,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Mobile and UAN */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Mobile" name="mobile" rules={[{ required: true, message: 'Mobile is required' }]}>
@@ -292,22 +390,30 @@ const UserDetail: React.FC = () => {
           </Form.Item>
         </Col>
       </Row>
-
+      
+      {/* PAN and PAN Attachment */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="PAN" name="pan" rules={[{ required: true, message: 'PAN is required' }]}>
             <Input />
           </Form.Item>
           <Form.Item
-            name="panAttachment"
+            name="panAttachment" // Name for AntD form state
             label="PAN Attachment"
             valuePropName="fileList"
             getValueFromEvent={normFile}
-            rules={[{ required: true, message: 'PAN Attachment is required' }]}
-            noStyle
+            rules={[{ 
+                validator: async (_, value) => {
+                    // If there's a new file selected OR an existing file shown in UI
+                    if (fileObjects.panAttachment || (value && value.length > 0)) {
+                        return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('PAN Attachment is required'));
+                }
+            }]}
           >
             <Upload
-              beforeUpload={() => false}
+              beforeUpload={() => false} // Prevent auto-upload
               onChange={handleUploadChange('panAttachment')}
               accept=".pdf,.jpg,.jpeg,.png"
               maxCount={1}
@@ -325,8 +431,14 @@ const UserDetail: React.FC = () => {
             label="AADHAAR Attachment"
             valuePropName="fileList"
             getValueFromEvent={normFile}
-            rules={[{ required: true, message: 'AADHAAR Attachment is required' }]}
-            noStyle
+            rules={[{ 
+                validator: async (_, value) => {
+                    if (fileObjects.aadhaarAttachment || (value && value.length > 0)) {
+                        return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('AADHAAR Attachment is required'));
+                }
+            }]}
           >
             <Upload
               beforeUpload={() => false}
@@ -340,19 +452,7 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
-      <Row gutter={16}>
-        <Col span={12}>
-          <Form.Item label="Present Address" name="presentAddress" rules={[{ required: true, message: 'Present Address is required' }]}>
-            <TextArea rows={3} />
-          </Form.Item>
-        </Col>
-        <Col span={12}>
-          <Form.Item label="Permanent Address" name="permanentAddress" rules={[{ required: true, message: 'Permanent Address is required' }]}>
-            <TextArea rows={3} />
-          </Form.Item>
-        </Col>
-      </Row>
-
+      {/* Mark of Identification and Photo */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item label="Mark of Identification" name="markOfIdentification" rules={[{ required: true, message: 'Mark of Identification is required' }]}>
@@ -362,11 +462,17 @@ const UserDetail: React.FC = () => {
         <Col span={12}>
           <Form.Item
             label="Photo"
-            name="photo"
+            name="photo" // Name for AntD form state
             valuePropName="fileList"
             getValueFromEvent={normFile}
-            rules={[{ required: true, message: 'Photo is required' }]}
-            noStyle
+            rules={[{ 
+                validator: async (_, value) => {
+                    if (fileObjects.photo || (value && value.length > 0)) {
+                        return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Photo is required'));
+                }
+            }]}
           >
             <Upload
               beforeUpload={() => false}
@@ -380,15 +486,22 @@ const UserDetail: React.FC = () => {
         </Col>
       </Row>
 
+      {/* Specimen Signature */}
       <Row gutter={16}>
         <Col span={12}>
           <Form.Item
             label="Specimen Signature/Thumb Impression"
-            name="specimenSignature"
+            name="specimenSignature" // Name for AntD form state
             valuePropName="fileList"
             getValueFromEvent={normFile}
-            rules={[{ required: true, message: 'Signature is required' }]}
-            noStyle
+            rules={[{ 
+                validator: async (_, value) => {
+                    if (fileObjects.specimenSignature || (value && value.length > 0)) {
+                        return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Signature is required'));
+                }
+            }]}
           >
             <Upload
               beforeUpload={() => false}
@@ -403,7 +516,7 @@ const UserDetail: React.FC = () => {
       </Row>
 
       <Form.Item>
-        <Button type="primary" htmlType="submit" style={{ marginTop: 16 }}>
+        <Button type="primary" htmlType="submit" style={{ marginTop: 16 }} disabled={!dataLoaded}>
           Submit
         </Button>
       </Form.Item>

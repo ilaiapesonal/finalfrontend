@@ -16,6 +16,7 @@ import ProjectsList from '@features/project/components/ProjectsList';
 import AdminCreation from '@features/admin/components/AdminCreation';
 import UserList from '@features/user/components/UserList';
 import UserDetail from '@features/user/components/userdetail';
+import CompanyDetailsForm from '@features/companydetails/companydetails';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -30,6 +31,8 @@ const Dashboard: React.FC = () => {
     return 'overview';
   });
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingUsers, setPendingUsers] = useState<any[]>([]);
+  const [userToApprove, setUserToApprove] = useState<any | null>(null);
 
   const navigate = useNavigate();
   const clearToken = useAuthStore((state) => state.clearToken);
@@ -44,10 +47,11 @@ const Dashboard: React.FC = () => {
     if (djangoUserType === 'projectadmin') {
       const fetchPendingApprovals = async () => {
         try {
-          const response = await api.get('/authentication/userdetail/');
+          const response = await api.get('/authentication/userdetail/pending/');
           const pending = Array.isArray(response.data)
-            ? response.data.filter((detail: any) => detail.approve === false)
+            ? response.data
             : [];
+          setPendingUsers(pending);
           setPendingApprovalCount(pending.length);
         } catch (error) {
           // Optionally handle error
@@ -57,16 +61,46 @@ const Dashboard: React.FC = () => {
     }
   }, [djangoUserType]);
 
-  // Show notification when pendingApprovalCount changes and is > 0
+  // Show notification when pendingUsers changes and is > 0
   useEffect(() => {
-    if (pendingApprovalCount > 0) {
-      notification.info({
-        message: 'Pending User Approvals',
-        description: `There are ${pendingApprovalCount} user(s) waiting for approval.`,
-        duration: 5,
+    if (pendingUsers.length > 0) {
+      pendingUsers.forEach((user: any) => {
+        notification.info({
+          message: 'Pending User Approval',
+          description: (
+            <div>
+              <div>{`User: ${user.name} (${user.email})`}</div>
+              <div style={{ marginTop: 8 }}>
+                <a
+                  href="#"
+                  onClick={e => {
+                    e.preventDefault();
+                    // Open user detail form for approval
+                    setSelectedKey('profile');
+                    setUserToApprove(user);
+                  }}
+                >
+                  Click to Approve
+                </a>
+              </div>
+            </div>
+          ),
+          duration: 0,
+          key: `pending-user-${user.id}`,
+        });
       });
     }
-  }, [pendingApprovalCount]);
+  }, [pendingUsers]);
+
+  // Callback to handle approval success from UserDetail
+  const handleApprovalSuccess = (approvedUserId: number) => {
+    // Remove approved user from pendingUsers
+    const updatedPendingUsers = pendingUsers.filter(user => user.id !== approvedUserId);
+    setPendingUsers(updatedPendingUsers);
+    setPendingApprovalCount(updatedPendingUsers.length);
+    setUserToApprove(null);
+    message.success('User approved successfully.');
+  };
 
   const handleMenuClick = (e: any) => {
     setSelectedKey(e.key);
@@ -127,7 +161,15 @@ const Dashboard: React.FC = () => {
       case 'users':
         return <UserList />;
       case 'profile':
-        return <UserDetail />;
+        return (
+          <UserDetail
+            userToApprove={userToApprove}
+            setUserToApprove={setUserToApprove}
+            onApprovalSuccess={handleApprovalSuccess}
+          />
+        );
+      case 'settings':
+        return <CompanyDetailsForm />;
       default:
         return (
           <>
