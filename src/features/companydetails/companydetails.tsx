@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Form, Input, Button, Upload, Typography, InputNumber, Space, message } from 'antd';
+import { Form, Input, Button, Upload, Typography, InputNumber, Space, message, Spin } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import api from '../../common/utils/axiosetup'; // Ensure this path is correct
 
@@ -84,6 +84,9 @@ const CompanyDetailsForm: React.FC = () => {
     console.log("[SUBMIT HANDLER - onFinish] Form values:", values);
     const projectCapacityCompleted = Number(values.project_capacity_completed ?? 0);
     const projectCapacityOngoing = Number(values.project_capacity_ongoing ?? 0);
+
+    // Added debug log to confirm submission
+    console.log("[SUBMIT HANDLER - onFinish] Submission triggered");
 
     try {
       const formData = new FormData();
@@ -175,60 +178,82 @@ const CompanyDetailsForm: React.FC = () => {
     return true;
   };
 
-  console.log(`[RENDER] Component rendering. editMode: ${editMode}, isLoading: ${isLoading}`);
-
-  if (isLoading) {
-    return <div style={{ padding: 24, textAlign: 'center' }}>Loading company details... (Current editMode: {String(editMode)})</div>;
-  }
+  // Removed debug console log for cleaner output
+  // console.log(`[RENDER] Component rendering. editMode: ${editMode}, isLoading: ${isLoading}`);
 
   return (
-    <div style={{ maxWidth: 700, margin: '0 auto', padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-      <Title level={3}>Company Details</Title>
-      <p>[DEBUG RENDER] Form `editMode` state: {String(editMode)}, Form `disabled` prop will be: {String(!editMode)}</p>
-      
-      <Form
-        id={FORM_ID} // Added ID for external submit button
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        disabled={!editMode} // Form items will be disabled if editMode is false
-        initialValues={{
-            project_capacity_completed: 0,
-            project_capacity_ongoing: 0,
-        }}
-      >
-        {/* All Form.Item fields go here as before */}
-        <Form.Item
-          label="Company Name"
-          name="company_name"
-          rules={[{ required: editMode, message: 'Please enter the company name' }]}
+    <Spin spinning={isLoading} tip="Loading company details...">
+      <div style={{ maxWidth: 700, margin: '0 auto', padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+        <Title level={3}>Company Details</Title>
+        {/* Removed debug render line for cleaner UI */}
+        {/* <p>[DEBUG RENDER] Form `editMode` state: {String(editMode)}, Form `disabled` prop will be: {String(!editMode)}</p> */}
+         
+        <Form
+          id={FORM_ID} // Added ID for external submit button
+          form={form}
+          layout="vertical"
+          onFinish={onFinish}
+          disabled={!editMode} // Form items will be disabled if editMode is false
+          initialValues={{
+              project_capacity_completed: 0,
+              project_capacity_ongoing: 0,
+          }}
         >
-          <Input placeholder="Enter company name" />
-        </Form.Item>
+          {/* All Form.Item fields go here as before */}
+          <Form.Item
+            label="Company Name"
+            name="company_name"
+            rules={[{ required: editMode, message: 'Please enter the company name' }]}
+          >
+            <Input placeholder="Enter company name" />
+          </Form.Item>
+          {/* Removed extra edit button below company name */}
+          {/* <Form.Item style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0', textAlign: 'right' }}>
+            {editMode ? (
+              <Space>
+                <Button 
+                  type="primary" 
+                  htmlType="submit"
+                >
+                  Submit Changes
+                </Button>
+                <Button onClick={onCancelClick}>
+                  Cancel
+                </Button>
+              </Space>
+            ) : (
+              <Button
+                type="default"
+                onClick={onEditClick}
+              >
+                Edit Details
+              </Button>
+            )}
+          </Form.Item> */}
 
-        <Form.Item
-          label="Registered Office Address"
-          name="registered_office_address"
-          rules={[{ required: editMode, message: 'Please enter the registered office address' }]}
-        >
-          <TextArea rows={3} placeholder="Enter registered office address" />
-        </Form.Item>
+          <Form.Item
+            label="Registered Office Address"
+            name="registered_office_address"
+            rules={[{ required: editMode, message: 'Please enter the registered office address' }]}
+          >
+            <TextArea rows={3} placeholder="Enter registered office address" />
+          </Form.Item>
 
-        <Form.Item
-          label="PAN"
-          name="pan"
-          rules={[{ required: editMode, message: 'Please enter the PAN' }]}
-        >
-          <Input placeholder="Enter PAN" />
-        </Form.Item>
+          <Form.Item
+            label="PAN"
+            name="pan"
+            rules={[{ required: editMode, message: 'Please enter the PAN' }]}
+          >
+            <Input placeholder="Enter PAN" />
+          </Form.Item>
 
-        <Form.Item
-          label="GST"
-          name="gst"
-          rules={[{ required: editMode, message: 'Please enter the GST' }]}
-        >
-          <Input placeholder="Enter GST" />
-        </Form.Item>
+          <Form.Item
+            label="GST"
+            name="gst"
+            rules={[{ required: editMode, message: 'Please enter the GST' }]}
+          >
+            <Input placeholder="Enter GST" />
+          </Form.Item>
 
         <Form.Item
           label="Company Logo"
@@ -237,98 +262,94 @@ const CompanyDetailsForm: React.FC = () => {
           getValueFromEvent={normFile}
           extra="Upload company logo (JPG/PNG, max 2MB)"
         >
-          <Upload
-            listType="picture"
-            maxCount={1}
-            beforeUpload={() => false}
-            onChange={handleLogoChange}
-            onRemove={handleLogoRemove}
-            accept="image/jpeg,image/png"
-            // The disabled state of the Upload button inside will be controlled by the Form's disabled prop
-          >
-            <Button icon={<UploadOutlined />}>Click to Upload</Button>
-          </Upload>
-          {logoPreview && (
-            <div style={{ marginTop: 10, border: '1px solid #f0f0f0', padding: '5px', display: 'inline-block' }}>
-              <img src={logoPreview} alt="Logo Preview" style={{ maxWidth: '100%', maxHeight: 150 }} />
-            </div>
+          <div>
+            <Upload
+              listType="picture"
+              maxCount={1}
+              beforeUpload={() => false}
+              onChange={handleLogoChange}
+              onRemove={handleLogoRemove}
+              accept="image/jpeg,image/png"
+              // The disabled state of the Upload button inside will be controlled by the Form's disabled prop
+            >
+              <Button icon={<UploadOutlined />}>Click to Upload</Button>
+            </Upload>
+            {logoPreview && (
+              <div style={{ marginTop: 10, border: '1px solid #f0f0f0', padding: '5px', display: 'inline-block' }}>
+                <img src={logoPreview} alt="Logo Preview" style={{ maxWidth: '100%', maxHeight: 150 }} />
+              </div>
+            )}
+          </div>
+        </Form.Item>
+
+          <Form.Item label="Contact Details">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Form.Item
+                name="contact_phone"
+                rules={[{ required: editMode, message: 'Please enter the phone number' }]}
+                noStyle
+              >
+                <Input placeholder="Phone No." />
+              </Form.Item>
+              <Form.Item
+                name="contact_email"
+                rules={[
+                  { required: editMode, message: 'Please enter the email' },
+                  { type: 'email', message: 'Please enter a valid email' },
+                ]}
+                noStyle
+              >
+                <Input placeholder="Email" />
+              </Form.Item>
+            </Space>
+          </Form.Item>
+
+          <Form.Item label="Overall Project Capacity (e.g., MW)">
+            <Space align="baseline" size="large">
+              <Form.Item
+                label="Completed"
+                name="project_capacity_completed"
+                rules={[{ required: editMode, message: 'Enter completed capacity' }]}
+              >
+                <InputNumber min={0} style={{ width: '130px' }} placeholder="e.g., 100" />
+              </Form.Item>
+              <Form.Item
+                label="On Going"
+                name="project_capacity_ongoing"
+                rules={[{ required: editMode, message: 'Enter ongoing capacity' }]}
+              >
+                <InputNumber min={0} style={{ width: '130px' }} placeholder="e.g., 50" />
+              </Form.Item>
+            </Space>
+          </Form.Item>
+
+          {/* THE ACTION BUTTONS ARE NO LONGER INSIDE A Form.Item WITHIN THE <Form> */}
+        {/* Moved action buttons inside the main Form */}
+        </Form>
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0', textAlign: 'right' }}>
+          {editMode ? (
+            <Space>
+              <Button 
+                type="primary" 
+                onClick={() => form.submit()}
+              >
+                Submit Changes
+              </Button>
+              <Button onClick={onCancelClick}>
+                Cancel
+              </Button>
+            </Space>
+          ) : (
+            <Button
+              type="default"
+              onClick={onEditClick}
+            >
+              Edit Details
+            </Button>
           )}
-        </Form.Item>
-
-        <Form.Item label="Contact Details">
-          <Space direction="vertical" style={{ width: '100%' }}>
-            <Form.Item
-              name="contact_phone"
-              rules={[{ required: editMode, message: 'Please enter the phone number' }]}
-              noStyle
-            >
-              <Input placeholder="Phone No." />
-            </Form.Item>
-            <Form.Item
-              name="contact_email"
-              rules={[
-                { required: editMode, message: 'Please enter the email' },
-                { type: 'email', message: 'Please enter a valid email' },
-              ]}
-              noStyle
-            >
-              <Input placeholder="Email" />
-            </Form.Item>
-          </Space>
-        </Form.Item>
-
-        <Form.Item label="Overall Project Capacity (e.g., MW)">
-          <Space align="baseline" size="large">
-            <Form.Item
-              label="Completed"
-              name="project_capacity_completed"
-              rules={[{ required: editMode, message: 'Enter completed capacity' }]}
-            >
-              <InputNumber min={0} style={{ width: '130px' }} placeholder="e.g., 100" />
-            </Form.Item>
-            <Form.Item
-              label="On Going"
-              name="project_capacity_ongoing"
-              rules={[{ required: editMode, message: 'Enter ongoing capacity' }]}
-            >
-              <InputNumber min={0} style={{ width: '130px' }} placeholder="e.g., 50" />
-            </Form.Item>
-          </Space>
-        </Form.Item>
-
-        {/* THE ACTION BUTTONS ARE NO LONGER INSIDE A Form.Item WITHIN THE <Form> */}
-      </Form>
-
-      {/* ACTION BUTTONS MOVED OUTSIDE AND BELOW THE FORM */}
-      <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #f0f0f0', textAlign: 'right' }}>
-        <p style={{ textAlign: 'left', color: 'blue', marginBottom: '8px', fontSize: '12px' }}>
-            [DEBUG BUTTON AREA] Current `editMode` state: {String(editMode)}
-        </p>
-        {editMode ? (
-          <Space>
-            <Button 
-              type="primary" 
-              htmlType="submit" // Still 'submit'
-              form={FORM_ID} // Crucially, links this button to the form with id="companyDetailsForm"
-            >
-              Submit Changes
-            </Button>
-            <Button onClick={onCancelClick}>
-              Cancel
-            </Button>
-          </Space>
-        ) : (
-          <Button
-            type="default"
-            onClick={onEditClick}
-            // style={{ border: '3px solid darkgreen', padding: '5px 10px' }} // Make it very obvious
-          >
-            Edit Details
-          </Button>
-        )}
+        </div>
       </div>
-
-    </div>
+    </Spin>
   );
 };
 

@@ -9,32 +9,21 @@ import {
   TeamOutlined,
   LogoutOutlined,
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import useAuthStore from '@common/store/authStore';
 import api from '@common/utils/axiosetup';
-import ProjectsList from '@features/project/components/ProjectsList';
-import AdminCreation from '@features/admin/components/AdminCreation';
-import UserList from '@features/user/components/UserList';
-import UserDetail from '@features/user/components/userdetail';
-import CompanyDetailsForm from '@features/companydetails/companydetails';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 
 const Dashboard: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [selectedKey, setSelectedKey] = useState<string>(() => {
-    if (typeof window !== 'undefined') {
-      const storedKey = localStorage.getItem('selectedMenu');
-      return storedKey !== null ? storedKey : 'overview';
-    }
-    return 'overview';
-  });
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingUsers, setPendingUsers] = useState<any[]>([]);
   const [userToApprove, setUserToApprove] = useState<any | null>(null);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const clearToken = useAuthStore((state) => state.clearToken);
   const username = useAuthStore((state) => state.username);
   const usertype = useAuthStore((state) => state.usertype);
@@ -42,21 +31,40 @@ const Dashboard: React.FC = () => {
   const token = useAuthStore((state) => state.token);
   const refreshToken = useAuthStore((state) => state.refreshToken);
 
+  // Determine selected menu key based on current path
+  const getSelectedKey = () => {
+    const path = location.pathname.toLowerCase();
+    if (path.includes('/dashboard/projects')) return 'projects';
+    if (path.includes('/dashboard/adminusers')) return 'adminusers';
+    if (path.includes('/dashboard/users')) return 'users';
+    if (path.includes('/dashboard/profile')) return 'profile';
+    if (path.includes('/dashboard/settings')) return 'settings';
+    return 'overview';
+  };
+
+  const [selectedKey, setSelectedKey] = useState<string>(getSelectedKey());
+
+  useEffect(() => {
+    setSelectedKey(getSelectedKey());
+  }, [location]);
+
   // Fetch pending approvals for projectadmin
+  const fetchPendingApprovals = async () => {
+    try {
+      const response = await api.get('/authentication/userdetail/pending/');
+      const pending = Array.isArray(response.data)
+        ? response.data
+        : [];
+      setPendingUsers(pending);
+      setPendingApprovalCount(pending.length);
+    } catch (error) {
+      // Optionally handle error
+      message.error('Failed to fetch pending approvals.');
+    }
+  };
+
   useEffect(() => {
     if (djangoUserType === 'projectadmin') {
-      const fetchPendingApprovals = async () => {
-        try {
-          const response = await api.get('/authentication/userdetail/pending/');
-          const pending = Array.isArray(response.data)
-            ? response.data
-            : [];
-          setPendingUsers(pending);
-          setPendingApprovalCount(pending.length);
-        } catch (error) {
-          // Optionally handle error
-        }
-      };
       fetchPendingApprovals();
     }
   }, [djangoUserType]);
@@ -75,8 +83,7 @@ const Dashboard: React.FC = () => {
                   href="#"
                   onClick={e => {
                     e.preventDefault();
-                    // Open user detail form for approval
-                    setSelectedKey('profile');
+                    navigate('/dashboard/profile');
                     setUserToApprove(user);
                   }}
                 >
@@ -90,7 +97,7 @@ const Dashboard: React.FC = () => {
         });
       });
     }
-  }, [pendingUsers]);
+  }, [pendingUsers, navigate]);
 
   // Callback to handle approval success from UserDetail
   const handleApprovalSuccess = (approvedUserId: number) => {
@@ -100,21 +107,38 @@ const Dashboard: React.FC = () => {
     setPendingApprovalCount(updatedPendingUsers.length);
     setUserToApprove(null);
     message.success('User approved successfully.');
+    fetchPendingApprovals();
   };
 
   const handleMenuClick = (e: any) => {
     setSelectedKey(e.key);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('selectedMenu', e.key);
+    switch (e.key) {
+      case 'overview':
+        navigate('/dashboard', { replace: true });
+        break;
+      case 'projects':
+        navigate('/dashboard/projects', { replace: true });
+        break;
+      case 'adminusers':
+        navigate('/dashboard/adminusers', { replace: true });
+        break;
+      case 'users':
+        navigate('/dashboard/users', { replace: true });
+        break;
+      case 'profile':
+        navigate('/dashboard/profile', { replace: true });
+        break;
+      case 'settings':
+        navigate('/dashboard/settings', { replace: true });
+        break;
+      default:
+        navigate('/dashboard', { replace: true });
     }
   };
 
   const handleUserMenuClick = (e: any) => {
     if (e.key === 'profile') {
-      setSelectedKey('profile');
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('selectedMenu', 'profile');
-      }
+      navigate('/dashboard/profile');
     } else if (e.key === 'logout') {
       handleLogout();
     }
@@ -151,33 +175,6 @@ const Dashboard: React.FC = () => {
     { type: 'divider' as 'divider' },
     { key: 'logout', icon: <LogoutOutlined />, label: 'Logout' },
   ];
-
-  const renderContent = () => {
-    switch (selectedKey) {
-      case 'projects':
-        return <ProjectsList />;
-      case 'adminusers':
-        return <AdminCreation />;
-      case 'users':
-        return <UserList />;
-        case 'profile':
-          return (
-            <UserDetail
-              userToApprove={userToApprove}
-              onApprovalSuccess={handleApprovalSuccess}
-            />
-          );
-      case 'settings':
-        return <CompanyDetailsForm />;
-      default:
-        return (
-          <>
-            <h2>{selectedKey.charAt(0).toUpperCase() + selectedKey.slice(1)}</h2>
-            <p>This is the {selectedKey} page content.</p>
-          </>
-        );
-    }
-  };
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -226,7 +223,7 @@ const Dashboard: React.FC = () => {
           </Space>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: '#fff', minHeight: 360 }}>
-          {renderContent()}
+          <Outlet context={{ userToApprove, onApprovalSuccess: handleApprovalSuccess }} />
         </Content>
       </Layout>
     </Layout>

@@ -93,7 +93,14 @@ interface UserDetailProps {
   onApprovalSuccess?: (approvedUserId: number) => void;
 }
 
-const UserDetail: React.FC<UserDetailProps> = ({ userToApprove }) => {
+import { useOutletContext } from 'react-router-dom';
+
+const UserDetail: React.FC<UserDetailProps> = () => {
+  const { userToApprove, onApprovalSuccess } = useOutletContext<{
+    userToApprove?: any | null;
+    onApprovalSuccess?: (approvedUserId: number) => void;
+  }>();
+
   const [form] = Form.useForm();
   // State to hold actual File objects for uploading
   const [fileObjects, setFileObjects] = useState<{
@@ -260,6 +267,21 @@ const UserDetail: React.FC<UserDetailProps> = ({ userToApprove }) => {
         },
       });
       message.success('User details updated successfully.');
+      if (userToApprove && userToApprove.id) {
+        try {
+          await api.post(`authentication/userdetail/approve/${userToApprove.id}/`);
+          message.success('User approved successfully.');
+          if (onApprovalSuccess) {
+            onApprovalSuccess(userToApprove.id);
+          }
+        } catch (approvalError) {
+          message.error('Failed to approve user.');
+        }
+      } else {
+        if (onApprovalSuccess && userToApprove && userToApprove.id) {
+          onApprovalSuccess(userToApprove.id);
+        }
+      }
     } catch (error: any) {
       if (error.response && error.response.data) {
         // Log or display specific backend validation errors
