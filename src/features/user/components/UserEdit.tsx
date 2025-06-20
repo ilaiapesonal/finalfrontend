@@ -34,7 +34,7 @@ const UserEdit: React.FC<UserEditProps> = ({ user, visible, onSave, onCancel }) 
       
       onSave(updatedUser);
       message.success('User updated successfully');
-    } catch (error) {
+    } catch (_error) { // Changed error to _error
       message.error('Failed to update user');
     } finally {
       setLoading(false);

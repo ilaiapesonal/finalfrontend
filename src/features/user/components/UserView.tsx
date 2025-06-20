@@ -3,14 +3,10 @@ import { Descriptions, Modal, Typography } from 'antd';
 
 const { Text } = Typography;
 
-import type { UserData as ImportedUserData } from '../types';
-
-interface UserData extends Omit<ImportedUserData, 'id'> {
-  id?: number;
-}
+import type { UserData } from '../types'; // Renamed for direct use
 
 interface UserViewProps {
-  user: UserData | null;
+  user: UserData | null; // Use UserData directly, id is now number
   visible: boolean;
   onClose: () => void;
 }
@@ -19,7 +15,7 @@ const UserView: React.FC<UserViewProps> = ({ user, visible, onClose }) => {
   if (!user) {
     return null;
   }
-  
+  // user.id is now guaranteed to be a number if user is not null
   return (
     <Modal 
       open={visible} 

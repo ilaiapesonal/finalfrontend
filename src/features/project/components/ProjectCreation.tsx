@@ -1,60 +1,65 @@
-import React, { useState } from 'react';
-import { Form, Input, Button, DatePicker, Select, Typography, message } from 'antd';
-import api from '@common/utils/axiosetup';
+import React from 'react'; // Removed useState and message
+import { Form, Input, Button, DatePicker, Select, Typography } from 'antd';
+// import api from '@common/utils/axiosetup'; // No longer making API calls here
+import type { Moment } from 'moment'; // Import Moment for DatePicker type
 
 const { Title } = Typography;
 const { Option } = Select;
 
-interface ProjectCreationProps {
-  onFinish?: (values: any) => void;
-  onSuccess?: () => void;
+// Interface for raw form values from Ant Design form
+interface RawProjectCreationFormValues {
+  projectName: string;
+  projectCategory: string;
+  capacity: string;
+  location: string;
+  nearestPoliceStation: string;
+  nearestPoliceStationContact: string;
+  nearestHospital: string;
+  nearestHospitalContact: string;
+  commencementDate: Moment; // DatePicker value is a Moment object
 }
 
-const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish, onSuccess }) => {
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
+// Define the structure of the form data passed to onFinish
+export interface ProjectFormData {
+  name: string;
+  category: string;
+  capacity: string;
+  location: string;
+  policeStation: string;
+  policeContact: string;
+  hospital: string;
+  hospitalContact: string;
+  commencementDate: string;
+}
 
-  const internalOnFinish = async (values: any) => {
-    // Format the date to match Django's expected format (YYYY-MM-DD)
-    const formattedValues = {
-      ...values,
-      commencementDate: values.commencementDate.format('YYYY-MM-DD'),
+interface ProjectCreationProps {
+  onFinish: (values: ProjectFormData) => void; // onFinish is now mandatory
+  // onSuccess prop is removed
+}
+
+const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish }) => {
+  const [form] = Form.useForm<RawProjectCreationFormValues>(); // Use the raw form values type for the form
+  // loading state is removed
+
+  const internalOnFinish = async (values: RawProjectCreationFormValues) => {
+    // 'values' is now correctly typed as RawProjectCreationFormValues
+    // Map form field names to match the structure of ProjectFormData
+    const apiData: ProjectFormData = {
+      name: values.projectName,
+      category: values.projectCategory,
+      capacity: values.capacity,
+      location: values.location,
+      policeStation: values.nearestPoliceStation,
+      policeContact: values.nearestPoliceStationContact,
+      hospital: values.nearestHospital,
+      hospitalContact: values.nearestHospitalContact,
+      commencementDate: values.commencementDate.format('YYYY-MM-DD'), // Format Moment object to string
     };
 
-    // Map form field names to match the backend API expectations
-    const apiData = {
-      name: formattedValues.projectName,
-      category: formattedValues.projectCategory,
-      capacity: formattedValues.capacity,
-      location: formattedValues.location,
-      policeStation: formattedValues.nearestPoliceStation,
-      policeContact: formattedValues.nearestPoliceStationContact,
-      hospital: formattedValues.nearestHospital,
-      hospitalContact: formattedValues.nearestHospitalContact,
-      commencementDate: formattedValues.commencementDate,
-    };
-
-    if (onFinish) {
-      onFinish(apiData);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Use the master admin project creation endpoint
-      await api.post('/authentication/master-admin/projects/create/', apiData);
-      message.success('Project created successfully!');
-      form.resetFields();
-      
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error: any) {
-      console.error('Error creating project:', error);
-      message.error(error.response?.data?.error || 'Failed to create project. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // Directly call onFinish with the mapped data
+    onFinish(apiData);
+    form.resetFields(); // Reset form after submitting data to parent
+    // setLoading, api.post, message.success, and onSuccess logic are removed
   };
 
   return (
@@ -146,7 +151,8 @@ const ProjectCreation: React.FC<ProjectCreationProps> = ({ onFinish, onSuccess }
         </Form.Item>
 
         <Form.Item>
-          <Button type="primary" htmlType="submit" style={{ width: '100%' }} loading={loading}>
+          {/* loading prop is removed from Button */}
+          <Button type="primary" htmlType="submit" style={{ width: '100%' }}>
             Create Project
           </Button>
         </Form.Item>

@@ -20,6 +20,34 @@ interface Project {
   commencementDate: string;
 }
 
+// Interface for raw project data from API
+interface RawProjectFromApi {
+  id: string | number; // ID can be string or number from API
+  name: string;
+  category: string;
+  capacity: string;
+  location: string;
+  policeStation: string;
+  policeContact: string;
+  hospital: string;
+  hospitalContact: string;
+  commencementDate: string;
+}
+
+// Interface for new project data for creation
+interface NewProjectData {
+  name: string;
+  category: string;
+  capacity: string;
+  location: string;
+  policeStation: string;
+  policeContact: string;
+  hospital: string;
+  hospitalContact: string;
+  commencementDate: string;
+  // Add any other fields expected by the creation API endpoint
+}
+
 const ProjectsList: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [viewingProject, setViewingProject] = useState<Project | null>(null);
@@ -34,11 +62,11 @@ const ProjectsList: React.FC = () => {
       console.log('API response data:', response.data);
       
       if (Array.isArray(response.data)) {
-        const fetchedProjects: Project[] = response.data
-          .filter((proj: any) => typeof proj.id === 'number')
-          .map((proj: any) => ({
-            key: String(proj.id),
-            id: proj.id,
+        const fetchedProjects: Project[] = response.data.map((proj: RawProjectFromApi) => {
+          const numericId = Number(proj.id); // Convert ID to number
+          return {
+            key: String(numericId), // Key should be string
+            id: numericId,
             name: proj.name,
             category: proj.category,
             capacity: proj.capacity,
@@ -96,18 +124,19 @@ const ProjectsList: React.FC = () => {
     }
   };
 
-  const handleSaveNewProject = async (values: any) => {
+  const handleSaveNewProject = async (values: NewProjectData) => {
     try {
-
       const response = await api.post('/authentication/master-admin/projects/create/', values);
-      const newProject = response.data;
-      
+      // Assuming the response 'newProject' also has an id that might need conversion
+      const newProjectFromApi: RawProjectFromApi = response.data;
+      const numericId = Number(newProjectFromApi.id);
+
       const formattedProject: Project = {
-        key: String(newProject.id),
-        id: newProject.id,
-        name: newProject.name,
-        category: newProject.category,
-        capacity: newProject.capacity,
+        key: String(numericId),
+        id: numericId,
+        name: newProjectFromApi.name,
+        category: newProjectFromApi.category,
+        capacity: newProjectFromApi.capacity,
         location: newProject.location,
         policeStation: newProject.policeStation,
         policeContact: newProject.policeContact,
@@ -133,7 +162,7 @@ const ProjectsList: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: Project) => (
+      render: (_text: unknown, record: Project) => ( // Typed render params
         <Space size="middle">
           <Button icon={<EyeOutlined />} onClick={() => handleView(record)} />
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
