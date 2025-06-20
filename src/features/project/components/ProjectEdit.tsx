@@ -1,9 +1,22 @@
 import React, { useState } from 'react';
-import moment from 'moment';
+import moment, { Moment } from 'moment'; // Import Moment
 import { Modal, Form, Input, DatePicker, Select, Button, message } from 'antd';
 import api from '@common/utils/axiosetup';
 
 const { Option } = Select;
+
+// Interface for raw form values from Ant Design form
+interface RawProjectEditFormValues {
+  projectName: string;
+  projectCategory: string;
+  capacity: string;
+  location: string;
+  nearestPoliceStation: string;
+  nearestPoliceStationContact: string;
+  nearestHospital: string;
+  nearestHospitalContact: string;
+  commencementDate: Moment | null; // DatePicker value can be Moment or null
+}
 
 interface Project {
   key: string;
@@ -46,7 +59,7 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
     }
   }, [project, form]);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: RawProjectEditFormValues) => {
     if (!project || !project.id) {
       message.error('No project selected for editing or project ID missing.');
       return;
@@ -63,7 +76,8 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
       policeContact: values.nearestPoliceStationContact,
       hospital: values.nearestHospital,
       hospitalContact: values.nearestHospitalContact,
-      commencementDate: values.commencementDate.format('YYYY-MM-DD'),
+      // Ensure commencementDate is not null before formatting
+      commencementDate: values.commencementDate ? values.commencementDate.format('YYYY-MM-DD') : '',
     };
 
     // Prepare data for API
@@ -84,9 +98,14 @@ const ProjectEdit: React.FC<ProjectEditProps> = ({ project, visible, onSave, onC
       await api.put(`/authentication/project/update/${project.id}/`, apiData);
       onSave(updatedProject);
       message.success('Project updated successfully');
-    } catch (error: any) {
+    } catch (error: unknown) { // Changed error type to unknown
       console.error('Error updating project:', error);
-      message.error(error.response?.data?.error || 'Failed to update project. Please try again.');
+      // Handle error appropriately, possibly with type guards for AxiosError
+      if (api.isAxiosError(error) && error.response?.data?.error) {
+        message.error(error.response.data.error);
+      } else {
+        message.error('Failed to update project. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

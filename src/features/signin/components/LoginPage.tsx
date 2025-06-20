@@ -7,6 +7,13 @@ import { UserOutlined, LockOutlined, LogoutOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
+// Interface for login form values
+interface LoginFormValues {
+  username?: string; // Optional because Form.Item might not always have a value
+  password?: string; // Optional for the same reason
+  remember?: boolean;
+}
+
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const setToken = useAuthStore((state) => state.setToken);
@@ -18,11 +25,11 @@ const LoginPage: React.FC = () => {
   const clearToken = useAuthStore((state) => state.clearToken);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: LoginFormValues) => {
     try {
       const response = await api.post('/authentication/login/', {
-        username: values.username,
-        password: values.password,
+        username: values.username, // values.username will be used
+        password: values.password, // values.password will be used
       });
 
       // Extract all relevant fields from backend response
@@ -64,8 +71,29 @@ const LoginPage: React.FC = () => {
       } else {
         navigate('/dashboard');
       }
-    } catch (error: any) {
-      if (error.response && error.response.status === 401) {
+    } catch (error: unknown) { // Changed error type to unknown
+      // Type guard for error with response and status
+      if (typeof error === 'object' && error !== null && 'response' in error) {
+        const responseError = error as { response?: { status?: unknown } }; // Basic assertion
+        if (responseError.response && responseError.response.status === 401) {
+          notification.error({
+            message: 'Login Failed',
+            description: 'Invalid username or password. Please check your credentials and try again.',
+            placement: 'topRight',
+            duration: 5,
+            style: { fontWeight: 'bold' },
+          });
+        } else {
+          notification.error({
+            message: 'Login Failed',
+            description: 'An unexpected error occurred. Please try again later.',
+            placement: 'topRight',
+            duration: 5,
+            style: { fontWeight: 'bold' },
+          });
+        }
+      } else {
+        // Fallback for other types of errors
         notification.error({
           message: 'Login Failed',
           description: 'Invalid username or password. Please check your credentials and try again.',
@@ -108,7 +136,7 @@ const LoginPage: React.FC = () => {
       setTimeout(() => {
         navigate('/signin');
       }, 1500);
-    } catch (error) {
+    } catch (_error) { // Changed error to _error
       message.error('Logout failed. Please try again.');
       clearToken();
       navigate('/signin');

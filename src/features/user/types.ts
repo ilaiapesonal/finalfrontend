@@ -1,6 +1,6 @@
 export interface UserData {
   key: string;
-  id: string | number;
+  id: number;
   email: string;
   username: string;
   name: string;

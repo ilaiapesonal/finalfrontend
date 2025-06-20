@@ -9,13 +9,21 @@ import type { UserData } from '../types';
 
 import useAuthStore from '@common/store/authStore';
 
+// Define the interface for the raw user object from the API
+interface RawUserFromApi {
+  id: string | number; // API might send string or number for ID before parsing
+  email: string;
+  username: string;
+  name: string;
+  surname: string;
+  department: string;
+  designation: string;
+  phone_number: string;
+  // Add other fields if the API returns more that are not directly in UserData
+}
+
 const UserList: React.FC = () => {
   const djangoUserType = useAuthStore((state) => state.django_user_type);
-
-  if (djangoUserType === 'adminuser') {
-    return <div>You do not have permission to view this page.</div>;
-  }
-
   const [users, setUsers] = useState<UserData[]>([]);
   const [viewingUser, setViewingUser] = useState<UserData | null>(null);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
@@ -28,9 +36,9 @@ const UserList: React.FC = () => {
       // Only fetch users created by the logged-in admin (handled by backend)
       const response = await api.get('/authentication/projectadminuser/list/');
       if (Array.isArray(response.data)) {
-        const fetchedUsers: UserData[] = response.data.map((user: any) => ({
+        const fetchedUsers: UserData[] = response.data.map((user: RawUserFromApi) => ({
           key: String(user.id),
-          id: user.id,
+          id: Number(user.id), // Ensure ID is a number for UserData
           email: user.email,
           username: user.username,
           name: user.name,
@@ -44,7 +52,10 @@ const UserList: React.FC = () => {
         setUsers([]);
       }
     } catch (error) {
-      message.error('Failed to fetch users');
+      // Only show error if not an admin user, as admin users aren't supposed to see this page
+      if (djangoUserType !== 'adminuser') {
+        message.error('Failed to fetch users');
+      }
       console.error(error);
     } finally {
       setLoading(false);
@@ -52,17 +63,18 @@ const UserList: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    // Only fetch users if not an admin user
+    if (djangoUserType !== 'adminuser') {
+      fetchUsers();
+    }
+  }, [djangoUserType]); // Add djangoUserType as a dependency
 
   const handleView = (user: UserData) => {
     setViewingUser(user);
   };
 
   const handleEdit = (user: UserData) => {
-    if (!user.id && user.key) {
-      user.id = Number(user.key);
-    }
+    // user.id is now always a number, user.key is string. No specific conversion needed here if UserData is correct.
     setEditingUser(user);
   };
 
@@ -76,10 +88,10 @@ const UserList: React.FC = () => {
     setAddingUser(false);
   };
 
-  const handleDelete = async (key: string) => {
+  const handleDelete = async (id: number) => {
     try {
-      await api.delete(`/authentication/projectadminuser/delete/${key}/`);
-      setUsers((prev) => prev.filter((user) => user.key !== key));
+      await api.delete(`/authentication/projectadminuser/delete/${String(id)}/`);
+      setUsers((prev) => prev.filter((user) => user.id !== id));
       message.success('User deleted successfully');
     } catch (error) {
       message.error('Failed to delete user');
@@ -87,13 +99,19 @@ const UserList: React.FC = () => {
     }
   };
 
-  const handleSaveNewUser = async (newUser: any) => {
+  const handleSaveNewUser = async (newUser: UserData) => { // Typed newUser
     try {
+      // newUser object should conform to UserData, including id as a number.
+      // UserCreation's onFinish is responsible for this transformation if needed.
+      // The backend response for user creation should provide the new user's ID.
+      // For now, let's assume newUser (which is response.data from UserCreation's onFinish)
+      // has an id that is a number.
+      const newId = Number(newUser.id); // Ensure it's a number
       setUsers((prev) => [
         ...prev,
         {
-          key: String(newUser.id ?? prev.length),
-          id: newUser.id,
+          key: String(newId), // key must be string for AntD
+          id: newId,
           email: newUser.email,
           username: newUser.username,
           name: newUser.name,
@@ -116,14 +134,17 @@ const UserList: React.FC = () => {
       if (!updatedUser.password) {
         delete updatedUser.password;
       }
-      const response = await api.put(`/authentication/projectadminuser/update/${updatedUser.id}/`, updatedUser);
+      // Ensure updatedUser.id is a number before sending. The type UserData already enforces this.
+      // API URL might need string, but payload can be number.
+      const response = await api.put(`/authentication/projectadminuser/update/${String(updatedUser.id)}/`, updatedUser);
       const updated = response.data;
+      const updatedId = Number(updated.id); // Ensure response id is number
       setUsers((prev) =>
         prev.map((user) =>
-          user.key === String(updated.id)
+          user.id === updatedId // Compare numbers
             ? {
-                key: String(updated.id),
-                id: updated.id,
+                key: String(updatedId), // key must be string
+                id: updatedId,
                 email: updated.email,
                 username: updated.username,
                 name: updated.name,
@@ -154,33 +175,32 @@ const UserList: React.FC = () => {
     {
       title: 'Actions',
       key: 'actions',
-      render: (_: any, record: UserData) => (
+      render: (_text: unknown, record: UserData) => ( // Typed render params
         <Space size="middle">
           <Button icon={<EyeOutlined />} onClick={() => handleView(record)} />
           <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+          <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.id)} />
         </Space>
       ),
     },
   ];
 
+  if (djangoUserType === 'adminuser') {
+    return <div>You do not have permission to view this page.</div>;
+  }
+
   return (
     <div>
-      {djangoUserType !== 'adminuser' && (
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAddUser} style={{ marginBottom: 16 }}>
-          Add User
-        </Button>
-      )}
+      <Button type="primary" icon={<PlusOutlined />} onClick={handleAddUser} style={{ marginBottom: 16 }}>
+        Add User
+      </Button>
       <Table columns={columns} dataSource={users} loading={loading} />
 
       {viewingUser && (
-        <UserView 
-          user={{
-            ...viewingUser,
-            id: typeof viewingUser.id === 'string' ? parseInt(viewingUser.id) : viewingUser.id
-          }} 
-          visible={true} 
-          onClose={handleCancel} 
+        <UserView
+          user={viewingUser} // viewingUser.id is already a number
+          visible={true}
+          onClose={handleCancel}
         />
       )}
 

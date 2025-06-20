@@ -6,6 +6,12 @@ import useAuthStore from '@common/store/authStore';
 
 const { Title } = Typography;
 
+// Interface for reset password form values
+interface ResetPasswordFormValues {
+  newPassword?: string;
+  confirmPassword?: string;
+}
+
 const ResetPassword: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -21,7 +27,7 @@ const ResetPassword: React.FC = () => {
     }
   }, [navigate]);
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: ResetPasswordFormValues) => {
     if (values.newPassword !== values.confirmPassword) {
       message.error('New password and confirm password do not match');
       return;
@@ -50,7 +56,8 @@ const ResetPassword: React.FC = () => {
       setIsPasswordResetRequired(false);
       useAuthStore.getState().clearToken();
       navigate('/login');
-    } catch (error) {
+    } catch (_error: unknown) { // Changed error to _error
+      console.error('Password reset error:', _error); // Log the error for debugging
       message.error('Failed to reset password. Please try again.');
     } finally {
       setLoading(false);

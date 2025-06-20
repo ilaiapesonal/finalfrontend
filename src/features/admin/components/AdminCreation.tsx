@@ -64,7 +64,7 @@ const AdminCreation: React.FC = () => {
 
   const fetchAdminsForProject = async (projectId: number) => {
     try {
-      let url = `/authentication/admin/list/${projectId}/`;
+      const url = `/authentication/admin/list/${projectId}/`; // Changed let to const
       const response = await api.get(url);
       if (response.data) {
         const admins = response.data;

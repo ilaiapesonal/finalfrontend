@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
         : [];
       setPendingUsers(pending);
       setPendingApprovalCount(pending.length);
-    } catch (error) {
+    } catch (_error) { // Changed error to _error
       // Optionally handle error
       message.error('Failed to fetch pending approvals.');
     }
@@ -164,7 +164,7 @@ const Dashboard: React.FC = () => {
       clearToken();
       message.success('Logged out successfully');
       navigate('/login');
-    } catch (error) {
+    } catch (_error) { // Changed error to _error
       message.error('Logout failed. Please try again.');
     }
   };

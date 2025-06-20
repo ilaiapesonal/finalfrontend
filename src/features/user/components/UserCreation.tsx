@@ -1,25 +1,18 @@
 import React from 'react';
 import { Form, Input, Button, message, Typography } from 'antd';
 import api from '../../../common/utils/axiosetup';
+import type { UserData } from '../types'; // Import UserData
 
 const { Title } = Typography;
 
-interface UserData {
-  email: string;
-  username: string;
-  name: string;
-  surname: string;
-  department: string;
-  designation: string;
-  phone_number: string;
-  password?: string;
-}
+// Define the type for form values, omitting id and key as they are not part of creation form
+type UserCreationFormData = Omit<UserData, 'id' | 'key'>;
 
 const UserCreation: React.FC<{ onFinish?: (values: any) => void }> = ({ onFinish }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<UserCreationFormData>();
   const [loading, setLoading] = React.useState(false);
 
-  const internalOnFinish = async (values: UserData) => {
+  const internalOnFinish = async (values: UserCreationFormData) => {
     setLoading(true);
     try {
       // Send to backend, let backend generate password

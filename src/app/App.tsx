@@ -10,13 +10,16 @@ import UserList from '@features/user/components/UserList';
 import { default as UserDetail } from '@features/user/components/userdetail';
 import CompanyDetailsForm from '@features/companydetails/companydetails';
 import ErrorBoundary from './ErrorBoundary';
+import type { UserData } from '@features/user/types'; // Import UserData
 
 // Wrapper component to pass Outlet context to UserDetail
 const ProfileWrapper: React.FC = () => {
   const { userToApprove, onApprovalSuccess } = useOutletContext<{
-    userToApprove?: any | null;
+    userToApprove?: UserData | null; // Changed any to UserData
     onApprovalSuccess?: (approvedUserId: number) => void;
   }>();
+  // The props for UserDetail will be updated based on its own definition in a later step.
+  // For now, this ensures App.tsx is typed.
   return <UserDetail userToApprove={userToApprove} onApprovalSuccess={onApprovalSuccess} />;
 };
 

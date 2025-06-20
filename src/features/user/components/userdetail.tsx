@@ -163,7 +163,7 @@ const UserDetail: React.FC<UserDetailProps> = () => {
         form.setFieldsValue(formValues);
         setDataLoaded(true); // Mark data as loaded
         // setReadOnly(data.is_approved); // Removed as readOnly state is removed
-      } catch (error) {
+      } catch (_error) { // Changed error to _error
         message.error('Failed to load user details.');
       }
     };
@@ -274,7 +274,7 @@ const UserDetail: React.FC<UserDetailProps> = () => {
           if (onApprovalSuccess) {
             onApprovalSuccess(userToApprove.id);
           }
-        } catch (approvalError) {
+        } catch (_approvalError) { // Changed approvalError to _approvalError
           message.error('Failed to approve user.');
         }
       } else {
